@@ -1,7 +1,6 @@
 // ── AI Engine ─────────────────────────────────────────────────────────────────
-// Smart matching, NLP classification, urgency detection
 
-// Skill → Need type mapping
+// Skill → Need category mapping
 const SKILL_NEED_MAP = {
   Medical:  ['Doctor', 'Counselor'],
   Food:     ['Helper', 'Driver', 'Logistics'],
@@ -10,14 +9,35 @@ const SKILL_NEED_MAP = {
   Other:    ['Helper'],
 };
 
+// ✅ Normalize category (CRITICAL FIX)
+const normalizeCategory = (cat) => {
+  if (!cat) return 'Other';
+  const c = cat.toLowerCase();
+
+  if (c.includes('doctor') || c.includes('medical') || c.includes('hospital') || c.includes('injur')) return 'Medical';
+  if (c.includes('food') || c.includes('meal') || c.includes('packet') || c.includes('rice') || c.includes('ration')) return 'Food';
+  if (c.includes('water') || c.includes('drink') || c.includes('hydr')) return 'Water';
+  if (c.includes('shelter') || c.includes('tent') || c.includes('camp') || c.includes('home')) return 'Shelter';
+
+  return 'Other';
+};
+
+// ✅ unified getter
+const getNeedType = (need) => normalizeCategory(need.category || need.type);
+
 /**
  * AI Matching Engine
- * Scores each volunteer for a given need (0–1 scale).
- * Factors: skill match, distance, urgency, past performance.
  */
 export function aiMatchVolunteers(need, volunteers) {
-  const relevantSkills = SKILL_NEED_MAP[need.type] || ['Helper'];
-  const urgencyWeight  = { Critical: 0.25, High: 0.20, Medium: 0.15, Low: 0.10 };
+  const needType = getNeedType(need);
+  const relevantSkills = SKILL_NEED_MAP[needType] || ['Helper'];
+
+  const urgencyWeight = {
+    Critical: 0.25,
+    High: 0.20,
+    Medium: 0.15,
+    Low: 0.10
+  };
 
   return volunteers
     .filter(v => v.available)
@@ -28,17 +48,17 @@ export function aiMatchVolunteers(need, volunteers) {
       if (relevantSkills.includes(v.skill)) score += 0.40;
       else score += 0.10;
 
-      // Distance score (30%) — closer = higher
-      const distScore = Math.max(0, 1 - v.distance / 10);
+      // Distance score (30%)
+      const distScore = Math.max(0, 1 - (v.distance || 5) / 10);
       score += distScore * 0.30;
 
-      // Urgency bonus (25%)
+      // Urgency (25%)
       score += urgencyWeight[need.urgency] || 0.10;
 
-      // Experience bonus (5%)
-      score += Math.min(0.05, v.tasksCompleted * 0.002);
+      // Experience (5%)
+      score += Math.min(0.05, (v.tasksCompleted || 0) * 0.002);
 
-      // Add slight randomisation for demo realism
+      // Slight randomness
       score = Math.min(0.99, score + (Math.random() * 0.04 - 0.02));
 
       return { ...v, matchScore: parseFloat(score.toFixed(2)) };
@@ -47,66 +67,71 @@ export function aiMatchVolunteers(need, volunteers) {
 }
 
 /**
- * NLP Need Classifier
- * Extracts category and urgency from free-text input.
+ * NLP Classifier (🔥 IMPROVED)
  */
 export function nlpClassify(text) {
   const t = text.toLowerCase();
 
-  // Category detection
   let category = 'Other';
-  if (/food|meal|eat|hunger|packet|rice|grain|provision/.test(t))           category = 'Food';
-  else if (/water|drink|fluid|hydrat/.test(t))                              category = 'Water';
-  else if (/doctor|medical|medicine|hospital|sick|hurt|injur|health|nurse/.test(t)) category = 'Medical';
-  else if (/shelter|home|house|sleep|accommodation|roof|tent|camp/.test(t)) category = 'Shelter';
 
-  // Urgency detection
+  // ✅ Stronger detection
+  if (/(food|meal|eat|hunger|packet|packets|rice|grain|ration)/i.test(t)) {
+    category = 'Food';
+  }
+  else if (/(water|drink|hydration|liquid)/i.test(t)) {
+    category = 'Water';
+  }
+  else if (/(doctor|medical|medicine|hospital|injur|health|nurse)/i.test(t)) {
+    category = 'Medical';
+  }
+  else if (/(shelter|home|house|tent|camp|roof)/i.test(t)) {
+    category = 'Shelter';
+  }
+
   let urgency = 'Medium';
-  if (/urgent|emergency|critical|immediately|asap|dying|starv|life|death/.test(t)) urgency = 'Critical';
-  else if (/need|require|help|soon|quickly|fast/.test(t))                          urgency = 'High';
-  else if (/sometime|maybe|whenever|eventually|low/.test(t))                       urgency = 'Low';
 
-  // Quantity extraction
-  const qtyMatch = t.match(/(\d+)\s*(people|person|families|packets|kits|litres|doctors?|volunteers?)/);
-  const qty      = qtyMatch ? parseInt(qtyMatch[1]) : null;
+  if (/(critical|emergency|asap|immediately|life|death)/i.test(t)) urgency = 'Critical';
+  else if (/(urgent|need|help|soon|quick)/i.test(t)) urgency = 'High';
+  else if (/(low|whenever|later|not urgent)/i.test(t)) urgency = 'Low';
+
+  // ✅ Better quantity extraction
+  const qtyMatch = t.match(/(\d+)/);
+  const qty = qtyMatch ? parseInt(qtyMatch[1]) : null;
 
   return { category, urgency, qty };
 }
 
 /**
- * Urgency Detector — returns numeric score 0–100
- */
-export function detectUrgencyScore(text) {
-  const t = text.toLowerCase();
-  let score = 30;
-  if (/critical|emergency|dying|life|death/.test(t)) score = 95;
-  else if (/urgent|immediately|asap|starv/.test(t))  score = 80;
-  else if (/help|need|require|fast/.test(t))          score = 60;
-  else if (/sometime|maybe|low/.test(t))              score = 20;
-  return score;
-}
-
-/**
- * Smart Recommendation — suggests best-fit tasks for a volunteer
+ * Recommendation Engine
  */
 export function recommendTasksForVolunteer(volunteer, needs) {
-  const relevantNeeds = needs.filter(n => n.status === 'Pending');
   const skillMap = {
-    Doctor:    'Medical',
-    Driver:    'Food',
-    Helper:    'Shelter',
+    Doctor: 'Medical',
+    Driver: 'Food',
+    Helper: 'Shelter',
     Logistics: 'Food',
     Counselor: 'Medical',
-    Other:     'Other',
+    Other: 'Other',
   };
 
-  return relevantNeeds
+  return needs
+    .filter(n => n.status === 'Pending')
     .map(need => {
       let score = 0;
-      if (skillMap[volunteer.skill] === need.type) score += 0.5;
-      const urgencyWeight = { Critical: 0.3, High: 0.2, Medium: 0.1, Low: 0.05 };
+      const needType = getNeedType(need);
+
+      if (skillMap[volunteer.skill] === needType) score += 0.5;
+
+      const urgencyWeight = {
+        Critical: 0.3,
+        High: 0.2,
+        Medium: 0.1,
+        Low: 0.05
+      };
+
       score += urgencyWeight[need.urgency] || 0.05;
       score += Math.random() * 0.15;
+
       return { ...need, recommendScore: parseFloat(score.toFixed(2)) };
     })
     .sort((a, b) => b.recommendScore - a.recommendScore)
@@ -114,20 +139,44 @@ export function recommendTasksForVolunteer(volunteer, needs) {
 }
 
 /**
- * Demand Predictor — generates prediction for an area based on pattern
+ * Demand Prediction
  */
 export function predictDemand(area, historicalNeeds) {
-  const areaNeeds  = historicalNeeds.filter(n => n.location.includes(area));
+  const areaNeeds = historicalNeeds.filter(n => n.location.includes(area));
+
   const categories = areaNeeds.reduce((acc, n) => {
-    acc[n.type] = (acc[n.type] || 0) + 1;
+    const type = getNeedType(n);
+    acc[type] = (acc[type] || 0) + 1;
     return acc;
   }, {});
+
   const topCategory = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
-  const probability = Math.min(95, 50 + (areaNeeds.length * 5) + Math.floor(Math.random() * 20));
+
+  const probability = Math.min(95, 50 + (areaNeeds.length * 5));
+
   return {
     area,
-    topNeed:     topCategory ? topCategory[0] : 'Unknown',
+    topNeed: topCategory ? topCategory[0] : 'Unknown',
     probability,
-    timeframe:   probability > 80 ? 'Tomorrow' : probability > 60 ? 'In 2 days' : 'This week',
+    timeframe:
+      probability > 80 ? 'Tomorrow' :
+      probability > 60 ? 'In 2 days' :
+      'This week'
   };
+}
+
+/**
+ * Urgency Score
+ */
+export function detectUrgencyScore(text) {
+  if (!text) return 30;
+
+  const t = text.toLowerCase();
+
+  if (/(critical|emergency|life|death)/i.test(t)) return 95;
+  if (/(urgent|asap|immediately)/i.test(t)) return 80;
+  if (/(need|help|require)/i.test(t)) return 60;
+  if (/(low|later|whenever)/i.test(t)) return 20;
+
+  return 30;
 }

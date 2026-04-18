@@ -9,7 +9,15 @@ import { NEED_TYPES, URGENCY_LEVELS } from '../data/mockData';
 import { toast } from 'react-toastify';
 import styles from './PostNeedPage.module.css';
 
-const EMPTY = { title: '', type: 'Food', qty: '', unit: 'packets', location: '', urgency: 'Medium', description: '' };
+const EMPTY = {
+  title: '',
+  type: 'Food',
+  qty: '',
+  unit: 'packets',
+  location: '',
+  urgency: 'Medium',
+  description: ''
+};
 
 function PostNeedPage() {
   const { addNeed } = useApp();
@@ -31,40 +39,58 @@ function PostNeedPage() {
 
   const validate = () => {
     const e = {};
-    if (!form.title.trim())    e.title    = 'Title is required';
+    if (!form.title.trim()) e.title = 'Title is required';
     if (!form.location.trim()) e.location = 'Location is required';
-    if (!form.qty || isNaN(form.qty) || Number(form.qty) < 1) e.qty = 'Enter a valid quantity';
+    if (!form.qty || isNaN(form.qty) || Number(form.qty) < 1)
+      e.qty = 'Enter a valid quantity';
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleSubmit = () => {
     if (!validate()) return;
+
+    // ✅ CLEAN + FIRESTORE READY DATA
     addNeed({
-      ...form,
+      title: form.title,
+      category: form.type,          // 🔥 FIX (important)
+      urgency: form.urgency,
+      location: form.location,
+      description: form.description,
       qty: parseInt(form.qty),
+      unit: form.unit,
       lat: 23.52 + Math.random() * 0.06,
       lng: 87.29 + Math.random() * 0.08,
       postedBy: 'You',
     });
+
     toast.success('✅ Need posted successfully!');
     navigate('/needs');
   };
 
   return (
     <div className={styles.page}>
+      {/* Header */}
       <div className={styles.header}>
-        <button className={styles.back} onClick={() => navigate(-1)}>← Back</button>
+        <button className={styles.back} onClick={() => navigate(-1)}>
+          ← Back
+        </button>
         <h1 className={styles.title}>Post a New Need</h1>
-        <p className={styles.sub}>Fill the form below or use AI to classify your need automatically</p>
+        <p className={styles.sub}>
+          Fill the form below or use AI to classify your need automatically
+        </p>
       </div>
 
+      {/* AI Classifier */}
       <NLPClassifier onClassified={handleClassified} />
 
+      {/* Form */}
       <div className={styles.formCard}>
         <h2 className={styles.formTitle}>Need Details</h2>
 
         <div className={styles.grid2}>
+          {/* Title */}
           <div style={{ gridColumn: '1 / -1' }}>
             <Input
               label="Title / Description"
@@ -76,6 +102,7 @@ function PostNeedPage() {
             />
           </div>
 
+          {/* Type */}
           <Select
             label="Need Type"
             value={form.type}
@@ -84,6 +111,7 @@ function PostNeedPage() {
             required
           />
 
+          {/* Urgency */}
           <Select
             label="Urgency Level"
             value={form.urgency}
@@ -92,6 +120,7 @@ function PostNeedPage() {
             required
           />
 
+          {/* Quantity */}
           <Input
             label="Quantity"
             type="number"
@@ -102,6 +131,7 @@ function PostNeedPage() {
             error={errors.qty}
           />
 
+          {/* Unit */}
           <Input
             label="Unit"
             value={form.unit}
@@ -109,6 +139,7 @@ function PostNeedPage() {
             placeholder="e.g. packets, litres, people"
           />
 
+          {/* Location */}
           <div style={{ gridColumn: '1 / -1' }}>
             <Input
               label="Location"
@@ -120,6 +151,7 @@ function PostNeedPage() {
             />
           </div>
 
+          {/* Description */}
           <div style={{ gridColumn: '1 / -1' }}>
             <label className={styles.label}>Additional Details</label>
             <textarea
@@ -132,16 +164,20 @@ function PostNeedPage() {
           </div>
         </div>
 
-        {/* Urgency preview */}
+        {/* Preview */}
         <div className={styles.preview}>
           <span className={styles.previewLabel}>Preview:</span>
           <span className={styles.previewText}>
-            [{form.urgency}] {form.type} need — {form.qty || '?'} {form.unit} at {form.location || '?'}
+            [{form.urgency}] {form.type} need — {form.qty || '?'}{' '}
+            {form.unit || ''} at {form.location || '?'}
           </span>
         </div>
 
+        {/* Actions */}
         <div className={styles.formActions}>
-          <Button variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => navigate(-1)}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmit}>🚀 Submit Need</Button>
         </div>
       </div>
