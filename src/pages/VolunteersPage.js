@@ -1,28 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import VolunteerCard from '../components/Volunteers/VolunteerCard';
-import Button from '../components/UI/Button';
 import Input from '../components/UI/Input';
-import Select from '../components/UI/Select';
-import Modal from '../components/UI/Modal';
-import { SKILL_TYPES } from '../data/mockData';
 import { getInitials } from '../utils/helpers';
-import { toast } from 'react-toastify';
 import styles from './VolunteersPage.module.css';
 
-const EMPTY_FORM = {
-  skill: 'Helper',
-  location: ''
-};
-
 function VolunteersPage() {
-  const { users = [], user, updateUser } = useApp();
-
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const { users = [], user } = useApp();
   const [search, setSearch] = useState('');
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const currentUser = users.find(u => u.uid === user?.uid);
 
@@ -36,33 +21,13 @@ function VolunteersPage() {
     );
   }
 
-  // 🔥 GET VOLUNTEERS FROM USERS
+  // 🔥 GET VOLUNTEERS
   const volunteers = users.filter(u =>
     u.role === "Volunteer" &&
     u.status === "approved"
   );
 
-  const alreadyVolunteer = currentUser?.role === "Volunteer";
-
-  // ✅ REGISTER
-  const handleRegister = async () => {
-    if (!form.location.trim()) {
-      toast.error("Location required");
-      return;
-    }
-
-    await updateUser(user.uid, {
-      role: "Volunteer",
-      skill: form.skill,
-      location: form.location,
-      available: true
-    });
-
-    toast.success("✅ You are now a volunteer!");
-    setShowModal(false);
-  };
-
-  // 🔍 SIMPLE SEARCH
+  // 🔍 SEARCH
   const filtered = volunteers.filter(v =>
     v.email?.toLowerCase().includes(search.toLowerCase()) ||
     v.location?.toLowerCase().includes(search.toLowerCase())
@@ -81,12 +46,6 @@ function VolunteersPage() {
             {available} available · {volunteers.length} total
           </p>
         </div>
-
-        {!alreadyVolunteer && (
-          <Button onClick={() => setShowModal(true)}>
-            Become Volunteer
-          </Button>
-        )}
       </div>
 
       {/* SEARCH */}
@@ -114,33 +73,6 @@ function VolunteersPage() {
           }}
         />
       ))}
-
-      {/* MODAL */}
-      <Modal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title="Become Volunteer"
-        width={480}
-      >
-        <Input
-          label="Location"
-          value={form.location}
-          onChange={e => set('location', e.target.value)}
-        />
-
-        <Select
-          label="Skill"
-          value={form.skill}
-          onChange={e => set('skill', e.target.value)}
-          options={SKILL_TYPES}
-        />
-
-        <div style={{ marginTop: 20 }}>
-          <Button onClick={handleRegister}>
-            🚀 Register
-          </Button>
-        </div>
-      </Modal>
 
     </div>
   );

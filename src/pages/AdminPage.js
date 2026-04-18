@@ -12,7 +12,6 @@ const TABS = ['Overview', 'Needs', 'Volunteers', 'Users', 'Activity'];
 function AdminPage() {
   const {
     needs = [],
-    volunteers = [],
     users = [],
     activities = [],
     updateNeedStatus,
@@ -35,6 +34,11 @@ function AdminPage() {
       </div>
     );
   }
+
+  // ✅ FIX: Volunteers from USERS
+  const volunteers = users.filter(
+    u => u.role === "Volunteer" && u.status === "approved"
+  );
 
   // 📊 Stats
   const total = needs.length;
@@ -68,7 +72,7 @@ function AdminPage() {
       return;
     }
 
-    if (window.confirm("Delete this user?") ) {
+    if (window.confirm("Delete this user?")) {
       await deleteUserAccount(uid);
       toast.error("❌ User deleted");
     }
@@ -116,173 +120,6 @@ function AdminPage() {
         ))}
       </div>
 
-      {/* ================= USERS ================= */}
-      {tab === 'Users' && (
-        <div className={styles.tableCard}>
-
-          {/* 🔥 PENDING USERS */}
-          <h3 className={styles.cardTitle}>
-            Pending Registrations ({pendingUsers.length})
-          </h3>
-
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Proof</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {pendingUsers.map(u => (
-                  <tr key={u.uid}>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-
-                    <td>
-                      <Badge text={u.status} color="#f97316" size="sm" />
-                    </td>
-
-                    {/* ✅ PROOF */}
-                    <td>
-                      {u.proofUrl ? (
-                        <Button onClick={() => window.open(u.proofUrl, '_blank')}>
-                          📄 View
-                        </Button>
-                      ) : '—'}
-                    </td>
-
-                    <td>
-                      <Button onClick={() => handleApprove(u.uid)}>
-                        Approve
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* 🔥 ALL USERS */}
-          <h3 className={styles.cardTitle} style={{ marginTop: 30 }}>
-            All Users ({activeUsers.length})
-          </h3>
-
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Proof</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {activeUsers.map(u => (
-                  <tr key={u.uid}>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-
-                    <td>
-                      <Badge
-                        text={u.status}
-                        color={getStatusColor(u.status)}
-                        size="sm"
-                      />
-                    </td>
-
-                    {/* ✅ PROOF */}
-                    <td>
-                      {u.proofUrl ? (
-                        <Button onClick={() => window.open(u.proofUrl, '_blank')}>
-                          📄 View
-                        </Button>
-                      ) : '—'}
-                    </td>
-
-                    <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
-
-                        {u.status === 'approved' && (
-                          <Button onClick={() => handleBlockUser(u.uid)}>
-                            Block
-                          </Button>
-                        )}
-
-                        {u.status === 'blocked' && (
-                          <Button onClick={() => handleUnblockUser(u.uid)}>
-                            Unblock
-                          </Button>
-                        )}
-
-                        <Button
-                          disabled={u.uid === user.uid}
-                          onClick={() => handleDeleteUser(u.uid)}
-                        >
-                          Delete
-                        </Button>
-
-                      </div>
-                    </td>
-
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-      )}
-
-      {/* ================= ACTIVITY ================= */}
-      {tab === 'Activity' && (
-        <div className={styles.tableCard}>
-          <h3 className={styles.cardTitle}>User Activity Logs</h3>
-
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Action</th>
-                <th>Proof</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {(activities || []).map(a => (
-                <tr key={a.id}>
-                  <td>{a.email}</td>
-                  <td>{a.action}</td>
-
-                  {/* ✅ PROOF */}
-                  <td>
-                    {a.proofUrl ? (
-                      <Button onClick={() => window.open(a.proofUrl, '_blank')}>
-                        📄 View
-                      </Button>
-                    ) : '—'}
-                  </td>
-
-                  {/* ✅ TIME */}
-                  <td>
-                    {a.createdAt?.toDate?.().toLocaleString() || '-'}
-                  </td>
-
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {/* ================= OVERVIEW ================= */}
       {tab === 'Overview' && (
         <div className={styles.statsGrid}>
@@ -293,6 +130,106 @@ function AdminPage() {
           <StatCard icon="🙋" label="Volunteers" value={totalVols} color="#8b5cf6" />
           <StatCard icon="🟢" label="Available" value={available} color="#22c55e" />
           <StatCard icon="📈" label="Completion Rate" value={`${rate}%`} color="#f59e0b" />
+        </div>
+      )}
+
+      {/* ================= VOLUNTEERS ================= */}
+      {tab === 'Volunteers' && (
+        <div className={styles.tableCard}>
+          <h3 className={styles.cardTitle}>
+            Volunteers ({volunteers.length})
+          </h3>
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Skill</th>
+                <th>Location</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {volunteers.map(v => (
+                <tr key={v.uid}>
+                  <td>{v.email}</td>
+                  <td>{v.skill || '-'}</td>
+                  <td>{v.location || '-'}</td>
+
+                  <td>
+                    <Badge
+                      text={v.available ? "Available" : "Busy"}
+                      color={v.available ? "#22c55e" : "#ef4444"}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ================= USERS ================= */}
+      {tab === 'Users' && (
+        <div className={styles.tableCard}>
+          <h3 className={styles.cardTitle}>
+            All Users ({activeUsers.length})
+          </h3>
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {activeUsers.map(u => (
+                <tr key={u.uid}>
+                  <td>{u.email}</td>
+                  <td>{u.role}</td>
+
+                  <td>
+                    <Badge
+                      text={u.status}
+                      color={getStatusColor(u.status)}
+                    />
+                  </td>
+
+                  <td>
+                    {u.status === 'pending' && (
+                      <Button onClick={() => handleApprove(u.uid)}>
+                        Approve
+                      </Button>
+                    )}
+
+                    {u.status === 'approved' && (
+                      <Button onClick={() => handleBlockUser(u.uid)}>
+                        Block
+                      </Button>
+                    )}
+
+                    {u.status === 'blocked' && (
+                      <Button onClick={() => handleUnblockUser(u.uid)}>
+                        Unblock
+                      </Button>
+                    )}
+
+                    <Button
+                      disabled={u.uid === user.uid}
+                      onClick={() => handleDeleteUser(u.uid)}
+                    >
+                      Delete
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -331,13 +268,50 @@ function AdminPage() {
                       Delete
                     </Button>
                   </td>
-
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+
+
+    {tab === 'Activity' && (
+      <div className={styles.tableCard}>
+        <h3 className={styles.cardTitle}>User Activity Logs</h3>
+
+        {activities.length === 0 ? (
+          <div style={{ padding: 20, opacity: 0.7 }}>
+            No activity found
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Action</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {activities.map(a => (
+                <tr key={a.id}>
+                  <td>{a.email}</td>
+                  <td>{a.action}</td>
+                  <td>
+                    {a.createdAt?.toDate
+                      ? a.createdAt.toDate().toLocaleString()
+                      : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    )}
 
     </div>
   );

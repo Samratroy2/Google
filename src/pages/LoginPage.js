@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import styles from './PostNeedPage.module.css';
 
 function LoginPage() {
-  const { login, users } = useApp(); // ✅ get users
+  const { login, users, logActivity } = useApp(); // ✅ added logActivity
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -25,22 +25,25 @@ function LoginPage() {
 
       const res = await login(email, password);
 
-      // 🔥 FIND USER IN FIRESTORE
+      // 🔥 FIND USER FROM FIRESTORE
       const dbUser = users.find(u => u.uid === res.uid);
 
       if (!dbUser) {
         throw new Error("User data missing");
       }
 
-      // ❌ BLOCKED USER
+      // ❌ BLOCKED
       if (dbUser.status === "blocked") {
         throw new Error("blocked");
       }
 
-      // ❌ DELETED USER
+      // ❌ DELETED
       if (dbUser.status === "deleted") {
         throw new Error("deleted");
       }
+
+      // ✅ LOG LOGIN ACTIVITY
+      await logActivity(email, "🔐 Login");
 
       // ✅ SUCCESS
       toast.success("✅ Login successful");
@@ -49,7 +52,6 @@ function LoginPage() {
     } catch (err) {
       console.error(err);
 
-      // 🔥 CLEAN ERROR HANDLING
       if (err.message === "blocked") {
         toast.error("🚫 You are blocked by admin");
       }
@@ -61,6 +63,9 @@ function LoginPage() {
       }
       else if (err.code === "auth/user-not-found") {
         toast.error("❌ User not found");
+      }
+      else if (err.message?.includes("approval")) {
+        toast.error("⏳ Awaiting admin approval");
       }
       else {
         toast.error(err.message || "Login failed");

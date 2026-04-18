@@ -9,8 +9,7 @@ function Topbar() {
     notifications,
     markAllRead,
     unreadCount,
-    user,
-    logout
+    user
   } = useApp();
 
   const [open, setOpen] = useState(false);
@@ -33,6 +32,7 @@ function Topbar() {
       </div>
 
       <div className={styles.actions}>
+
         {/* 🔔 Notifications */}
         <div className={styles.notifWrap} ref={ref}>
           <button
@@ -43,7 +43,9 @@ function Topbar() {
             }}
           >
             🔔
-            {unreadCount > 0 && <span className={styles.badge}>{unreadCount}</span>}
+            {unreadCount > 0 && (
+              <span className={styles.badge}>{unreadCount}</span>
+            )}
           </button>
 
           {open && (
@@ -55,7 +57,10 @@ function Topbar() {
               )}
 
               {notifications.map(n => (
-                <div key={n.id} className={`${styles.notifItem} ${!n.read ? styles.unread : ''}`}>
+                <div
+                  key={n.id}
+                  className={`${styles.notifItem} ${!n.read ? styles.unread : ''}`}
+                >
                   <div className={styles.notifText}>{n.text}</div>
                   <div className={styles.notifTime}>{n.time}</div>
                 </div>
@@ -69,15 +74,11 @@ function Topbar() {
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
 
-        {/* 👤 User */}
+        {/* 👤 User Avatar */}
         <div className={styles.avatar}>
           {user?.email?.charAt(0).toUpperCase() || 'U'}
         </div>
 
-        {/* 🚪 Logout */}
-        <button className={styles.iconBtn} onClick={logout}>
-          🚪
-        </button>
       </div>
     </header>
   );
