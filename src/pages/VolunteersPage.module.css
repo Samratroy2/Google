@@ -1,0 +1,102 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.title { font-size: 26px; font-weight: 900; color: var(--text); }
+.sub   { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
+.skillSummary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.skillChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.12s;
+}
+.skillChip:hover { background: var(--border); color: var(--text); }
+.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+
+.count {
+  background: rgba(255,255,255,0.25);
+  border-radius: 99px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.filterBar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.search {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+}
+.search:focus { outline: none; border-color: var(--accent); }
+
+.availFilter { display: flex; gap: 6px; }
+.chip {
+  padding: 7px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.chip:hover    { background: var(--border); }
+.chipActive    { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+
+.empty {
+  text-align: center;
+  padding: 48px;
+  color: var(--muted);
+  font-size: 15px;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+}
+
+/* Modal internals */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+  resize: vertical;
+}
+.textarea:focus { outline: none; border-color: var(--accent); }
+.modalActions { display: flex; gap: 10px; justify-content: flex-end; }

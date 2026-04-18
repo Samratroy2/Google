@@ -1,0 +1,96 @@
+/* ── Global Reset & Variables ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --font: 'Plus Jakarta Sans', sans-serif;
+
+  /* Dark theme (default) */
+  --bg:        #0d0f18;
+  --surface:   #13161f;
+  --card:      #1a1d2e;
+  --border:    #262a3d;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --accent:    #6366f1;
+  --accent2:   #8b5cf6;
+  --success:   #22c55e;
+  --warning:   #f59e0b;
+  --danger:    #ef4444;
+  --info:      #3b82f6;
+
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  --shadow:    0 4px 24px rgba(0,0,0,0.25);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.4);
+}
+
+[data-theme="light"] {
+  --bg:      #f0f2f9;
+  --surface: #e8eaf2;
+  --card:    #ffffff;
+  --border:  #d1d5e8;
+  --text:    #0f172a;
+  --muted:   #64748b;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: var(--font);
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-in { animation: fadeIn 0.35s ease both; }
+
+/* Utility classes */
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

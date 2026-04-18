@@ -1,0 +1,29 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+.card:hover { transform: translateY(-2px); }
+
+.iconBox {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon { font-size: 22px; }
+
+.info { flex: 1; }
+.value { font-size: 30px; font-weight: 900; color: var(--text); line-height: 1; }
+.label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+.trend { font-size: 12px; font-weight: 700; }
