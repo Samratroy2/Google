@@ -1,149 +1,197 @@
+/* ================= HEADER ================= */
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
+  align-items: center;
+  margin-bottom: 28px;
 }
-.title { font-size: 26px; font-weight: 900; color: var(--text); }
-.sub   { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
+.title {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
 .adminBadge {
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.3);
-  color: #818cf8;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
   padding: 8px 16px;
-  border-radius: 99px;
-  font-size: 13px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 700;
 }
 
+/* ================= TABS ================= */
 .tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 24px;
+  gap: 6px;
+  margin-bottom: 26px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 4px;
+  padding: 6px;
   width: fit-content;
 }
+
 .tab {
-  padding: 8px 20px;
-  border-radius: 9px;
+  padding: 8px 18px;
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--muted);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  font-family: var(--font);
-  transition: all 0.15s;
-}
-.tab:hover   { color: var(--text); }
-.tabActive   { background: var(--card); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-
-.statsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px;
-  margin-bottom: 24px;
+  transition: all 0.2s ease;
 }
 
-.chartsRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+.tab:hover {
+  color: var(--text);
 }
 
-.chartCard {
+.tabActive {
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
-.cardTitle { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 16px; }
 
-.chartLegend {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 10px;
-}
-.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
-
+/* ================= TABLE CARD ================= */
 .tableCard {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
 }
-.tableHeader { padding: 18px 20px; border-bottom: 1px solid var(--border); }
-.tableWrap   { overflow-x: auto; }
 
-.table { width: 100%; border-collapse: collapse; }
-.th {
-  padding: 12px 16px;
-  text-align: left;
-  font-size: 11px;
+/* ================= TABLE ================= */
+.tableWrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+/* HEADER */
+.table thead {
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.table th {
+  padding: 14px 16px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: var(--surface);
+  text-align: left;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
 }
-.tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
-.tr:last-child { border-bottom: none; }
-.tr:hover { background: var(--surface); }
-.td {
-  padding: 12px 16px;
-  font-size: 13px;
-  color: var(--text);
-  vertical-align: middle;
-  white-space: nowrap;
-}
-.tdTitle { font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; display: block; white-space: nowrap; }
-.muted   { color: var(--muted); }
 
-.rowActions { display: flex; gap: 6px; }
-.actionBtn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+/* ROW */
+.table tr {
+  border-bottom: 1px solid var(--border);
+  transition: 0.2s;
+}
+
+.table tr:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+/* CELL */
+.table td {
+  padding: 14px 16px;
+  font-size: 14px;
   color: var(--text);
+}
+
+/* ================= BADGE ================= */
+.badgeApproved {
+  background: rgba(34,197,94,0.12);
+  color: #22c55e;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badgePending {
+  background: rgba(249,115,22,0.12);
+  color: #f97316;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ================= ACTION BUTTONS ================= */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Block Button */
+.btnBlock {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  font-family: var(--font);
-  transition: all 0.12s;
-}
-.actionBtn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-.danger:hover    { background: var(--danger) !important; border-color: var(--danger) !important; }
-
-.volNameCell { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-.miniAvatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; flex-shrink: 0;
+  transition: 0.2s;
 }
 
-/* Analytics */
-.analyticsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+.btnBlock:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(99,102,241,0.4);
 }
-.metricCard {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px;
-  text-align: center;
-}
-.metricIcon  { font-size: 28px; margin-bottom: 10px; }
-.metricVal   { font-size: 32px; font-weight: 900; line-height: 1; }
-.metricLabel { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-@media (max-width: 900px) { .chartsRow { grid-template-columns: 1fr; } }
+/* Delete Button */
+.btnDelete {
+  background: rgba(239,68,68,0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btnDelete:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* ================= USERS SECTION FIX ================= */
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 16px 0 8px;
+  color: var(--text);
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+  .table {
+    min-width: 600px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+}

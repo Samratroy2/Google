@@ -7,13 +7,9 @@ import Select from '../components/UI/Select';
 import styles from './PostNeedPage.module.css';
 
 const ROLES = [
-  { value: 'General', label: 'General Volunteer' },
-  { value: 'Doctor', label: 'Doctor' },
-  { value: 'Driver', label: 'Driver' },
-  {value: 'Helper', label: 'Helper'},
-  {value: 'Logistics', label: 'Logistics'},
-  { value: 'Counselor', label: 'Counselor' },
-  { value: 'Other', label: 'Other' }
+  { value: '', label: 'Select Role' }, // ✅ placeholder
+  { value: 'Volunteer', label: 'Volunteer' },
+  { value: 'NGO', label: 'NGO' }
 ];
 
 function RegisterPage() {
@@ -22,22 +18,25 @@ function RegisterPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('General');
-  const [file, setFile] = useState(null);
-
-  const requiresProof = role === "Doctor" || role === "Teacher";
+  const [role, setRole] = useState(''); // ✅ controlled
 
   const handleRegister = async () => {
+    if (!email || !password) {
+      return alert("⚠️ Email & Password required");
+    }
+
+    if (!role) {
+      return alert("⚠️ Please select a role");
+    }
+
     try {
-      await signup(email, password, role, file);
+      console.log("Selected role:", role); // 🔥 debug
 
-      alert(
-        requiresProof
-          ? "⏳ Awaiting admin verification"
-          : "✅ Registered successfully"
-      );
+      await signup(email, password, role);
 
+      alert("✅ Registered successfully");
       navigate('/login');
+
     } catch (err) {
       alert(err.message);
     }
@@ -45,11 +44,24 @@ function RegisterPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.formCard} style={{ maxWidth: 420, margin: '80px auto' }}>
+      <div
+        className={styles.formCard}
+        style={{ maxWidth: 420, margin: '80px auto' }}
+      >
         <h2 className={styles.formTitle}>Create Account</h2>
 
-        <Input label="Email" value={email} onChange={e => setEmail(e.target.value)} />
-        <Input type="password" label="Password" value={password} onChange={e => setPassword(e.target.value)} />
+        <Input
+          label="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+        />
+
+        <Input
+          type="password"
+          label="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
 
         <Select
           label="Select Role"
@@ -58,16 +70,10 @@ function RegisterPage() {
           options={ROLES}
         />
 
-        {requiresProof && (
-          <input
-            type="file"
-            onChange={e => setFile(e.target.files[0])}
-            style={{ marginTop: 10 }}
-          />
-        )}
-
         <div className={styles.formActions}>
-          <Button onClick={handleRegister}>🚀 Create Account</Button>
+          <Button onClick={handleRegister}>
+            🚀 Create Account
+          </Button>
         </div>
 
         <p style={{ marginTop: 16 }}>

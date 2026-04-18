@@ -11,62 +11,76 @@ import { toast } from 'react-toastify';
 import styles from './VolunteersPage.module.css';
 
 const EMPTY_FORM = {
-  name: '',
   skill: 'Helper',
   location: '',
   available: 'true',
   phone: '',
   bio: '',
-  subSkills: '' // ✅ NEW FIELD
+  subSkills: ''
 };
 
 function VolunteersPage() {
-  const { volunteers, addVolunteer, deleteVolunteer } = useApp();
+  const { users = [], user, updateUser } = useApp();
+
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [search, setSearch] = useState('');
   const [filterSkill, setFilterSkill] = useState('All');
   const [filterAvail, setFilterAvail] = useState('All');
-  const [errors, setErrors] = useState({});
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const validate = () => {
-    const e = {};
-    if (!form.name.trim()) e.name = 'Name is required';
-    if (!form.location.trim()) e.location = 'Location is required';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
+  const currentUser = users.find(u => u.uid === user?.uid);
 
-  const handleRegister = () => {
-    if (!validate()) return;
+  // 🚫 BLOCKED
+  if (currentUser?.status === 'blocked') {
+    return (
+      <div style={{ padding: 40 }}>
+        <h2>🚫 Access Denied</h2>
+        <p>Your account is blocked</p>
+      </div>
+    );
+  }
 
-    addVolunteer({
-      ...form,
-      name: form.name.trim(),
-      location: form.location.trim(),
+  // ⏳ NOT APPROVED
+  if (currentUser?.status === 'pending') {
+    return (
+      <div style={{ padding: 40 }}>
+        <h2>⏳ Waiting for Approval</h2>
+      </div>
+    );
+  }
+
+  // 🔥 FILTER VOLUNTEERS FROM USERS
+  const volunteers = users.filter(u =>
+    u.role === "Volunteer" &&
+    u.status === "approved"
+  );
+
+  const alreadyVolunteer = currentUser?.role === "Volunteer";
+
+  // ✅ REGISTER AS VOLUNTEER (UPDATE USER DOC)
+  const handleRegister = async () => {
+    if (!form.location.trim()) {
+      toast.error("Location required");
+      return;
+    }
+
+    await updateUser(user.uid, {
+      role: "Volunteer",
+      skill: form.skill,
+      location: form.location,
       available: form.available === 'true',
-      avatar: getInitials(form.name),
-      distance: parseFloat((Math.random() * 8 + 0.5).toFixed(1)) || 0,
-      rating: 5.0,
-
-      // ✅ Convert string → array
-      subSkills: typeof form.subSkills === 'string'
-        ? form.subSkills.split(',').map(s => s.trim()).filter(Boolean)
-        : [],
+      phone: form.phone,
+      bio: form.bio,
+      subSkills: form.subSkills.split(',').map(s => s.trim())
     });
 
-    toast.success(`✅ ${form.name} registered as volunteer!`);
-    setForm(EMPTY_FORM);
+    toast.success("✅ You are now a volunteer!");
     setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    deleteVolunteer(id);
-    toast.info('🗑 Volunteer removed');
-  };
-
+  // 🔍 FILTER
   const filtered = volunteers.filter(v => {
     if (filterSkill !== 'All' && v.skill !== filterSkill) return false;
     if (filterAvail === 'Available' && !v.available) return false;
@@ -74,8 +88,8 @@ function VolunteersPage() {
 
     if (
       search &&
-      !v.name.toLowerCase().includes(search.toLowerCase()) &&
-      !v.location.toLowerCase().includes(search.toLowerCase())
+      !v.email.toLowerCase().includes(search.toLowerCase()) &&
+      !v.location?.toLowerCase().includes(search.toLowerCase())
     ) return false;
 
     return true;
@@ -85,7 +99,8 @@ function VolunteersPage() {
 
   return (
     <div>
-      {/* Header */}
+
+      {/* HEADER */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Volunteers</h1>
@@ -93,143 +108,67 @@ function VolunteersPage() {
             {available} available · {volunteers.length} total
           </p>
         </div>
-        <Button onClick={() => setShowModal(true)}>+ Register Volunteer</Button>
+
+        {!alreadyVolunteer && (
+          <Button onClick={() => setShowModal(true)}>
+            Become Volunteer
+          </Button>
+        )}
       </div>
 
-      {/* Skill Summary */}
-      <div className={styles.skillSummary}>
-        {['All', ...SKILL_TYPES].map(skill => {
-          const count = skill === 'All'
-            ? volunteers.length
-            : volunteers.filter(v => v.skill === skill).length;
-
-          return (
-            <button
-              key={skill}
-              className={`${styles.skillChip} ${filterSkill === skill ? styles.active : ''}`}
-              onClick={() => setFilterSkill(skill)}
-            >
-              {skill} <span className={styles.count}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filters */}
+      {/* SEARCH */}
       <div className={styles.filterBar}>
         <input
           className={styles.search}
-          placeholder="🔍  Search by name or location…"
+          placeholder="Search..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-
-        <div className={styles.availFilter}>
-          {['All', 'Available', 'Busy'].map(a => (
-            <button
-              key={a}
-              className={`${styles.chip} ${filterAvail === a ? styles.chipActive : ''}`}
-              onClick={() => setFilterAvail(a)}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
       </div>
 
       {filtered.length === 0 && (
-        <div className={styles.empty}>No volunteers match your filters.</div>
+        <div className={styles.empty}>No volunteers found</div>
       )}
 
-      {/* Volunteer List */}
+      {/* LIST */}
       {filtered.map(v => (
         <VolunteerCard
-          key={v.id}
-          volunteer={v}
-          onDelete={handleDelete} // ✅ delete passed
+          key={v.uid}
+          volunteer={{
+            ...v,
+            name: v.email.split('@')[0],
+            avatar: getInitials(v.email)
+          }}
         />
       ))}
 
-      {/* Modal */}
+      {/* MODAL */}
       <Modal
         open={showModal}
         onClose={() => setShowModal(false)}
-        title="🙋 Register as Volunteer"
+        title="Become Volunteer"
         width={520}
       >
-        <div className={styles.grid2}>
-          <div style={{ gridColumn: '1/-1' }}>
-            <Input
-              label="Full Name"
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
-              required
-              error={errors.name}
-            />
-          </div>
+        <Input
+          label="Location"
+          value={form.location}
+          onChange={e => set('location', e.target.value)}
+        />
 
-          <Select
-            label="Primary Skill"
-            value={form.skill}
-            onChange={e => set('skill', e.target.value)}
-            options={SKILL_TYPES}
-          />
+        <Select
+          label="Skill"
+          value={form.skill}
+          onChange={e => set('skill', e.target.value)}
+          options={SKILL_TYPES}
+        />
 
-          <Select
-            label="Availability"
-            value={form.available}
-            onChange={e => set('available', e.target.value)}
-            options={[
-              { value: 'true', label: 'Available Now' },
-              { value: 'false', label: 'Not Available' }
-            ]}
-          />
-
-          <div style={{ gridColumn: '1/-1' }}>
-            <Input
-              label="Location"
-              value={form.location}
-              onChange={e => set('location', e.target.value)}
-              required
-              error={errors.location}
-            />
-          </div>
-
-          <div style={{ gridColumn: '1/-1' }}>
-            <Input
-              label="Phone"
-              value={form.phone}
-              onChange={e => set('phone', e.target.value)}
-            />
-          </div>
-
-          {/* ✅ NEW SUB SKILLS INPUT */}
-          <div style={{ gridColumn: '1/-1' }}>
-            <Input
-              label="Sub Skills (comma separated)"
-              value={form.subSkills}
-              onChange={e => set('subSkills', e.target.value)}
-              placeholder="e.g. Surgery, First Aid, Driving"
-            />
-          </div>
-
-          <div style={{ gridColumn: '1/-1' }}>
-            <label className={styles.label}>Bio</label>
-            <textarea
-              value={form.bio}
-              onChange={e => set('bio', e.target.value)}
-              className={styles.textarea}
-            />
-          </div>
-        </div>
-
-        <div className={styles.modalActions}>
-          <Button variant="ghost" onClick={() => setShowModal(false)}>
-            Cancel
+        <div style={{ marginTop: 20 }}>
+          <Button onClick={handleRegister}>
+            Register
           </Button>
-          <Button onClick={handleRegister}>Register</Button>
         </div>
       </Modal>
+
     </div>
   );
 }

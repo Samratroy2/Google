@@ -9,6 +9,7 @@ import VolunteersPage from './pages/VolunteersPage';
 import MapPage from './pages/MapPage';
 import ChatbotPage from './pages/ChatbotPage';
 import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
 import PostNeedPage from './pages/PostNeedPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -30,6 +31,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin-verify" element={<AdminVerifyPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         
         {/* ✅ PROTECTED APP */}
         <Route path="/*" element={

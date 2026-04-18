@@ -3,33 +3,87 @@ import { useApp } from '../context/AppContext';
 import { useNavigate, Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
 import Input from '../components/UI/Input';
+import { toast } from 'react-toastify';
 import styles from './PostNeedPage.module.css';
 
 function LoginPage() {
-  const { login } = useApp();
+  const { login, users } = useApp(); // ✅ get users
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      toast.error("⚠️ Please fill all fields");
+      return;
+    }
+
     try {
-      await login(email, password);
+      setLoading(true);
+
+      const res = await login(email, password);
+
+      // 🔥 FIND USER IN FIRESTORE
+      const dbUser = users.find(u => u.uid === res.uid);
+
+      if (!dbUser) {
+        throw new Error("User data missing");
+      }
+
+      // ❌ BLOCKED USER
+      if (dbUser.status === "blocked") {
+        throw new Error("blocked");
+      }
+
+      // ❌ DELETED USER
+      if (dbUser.status === "deleted") {
+        throw new Error("deleted");
+      }
+
+      // ✅ SUCCESS
+      toast.success("✅ Login successful");
       navigate('/dashboard');
+
     } catch (err) {
-      alert(err.message);
+      console.error(err);
+
+      // 🔥 CLEAN ERROR HANDLING
+      if (err.message === "blocked") {
+        toast.error("🚫 You are blocked by admin");
+      }
+      else if (err.message === "deleted") {
+        toast.error("❌ Your account was deleted");
+      }
+      else if (err.code === "auth/wrong-password") {
+        toast.error("❌ Wrong password");
+      }
+      else if (err.code === "auth/user-not-found") {
+        toast.error("❌ User not found");
+      }
+      else {
+        toast.error(err.message || "Login failed");
+      }
+
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className={styles.page}>
-      <div className={styles.formCard} style={{ maxWidth: 420, margin: '80px auto' }}>
-        <h2 className={styles.formTitle}>Login</h2>
+      <div
+        className={styles.formCard}
+        style={{ maxWidth: 420, margin: '80px auto' }}
+      >
+        <h2 className={styles.formTitle}>🔐 Login</h2>
 
         <Input
           label="Email"
           value={email}
           onChange={e => setEmail(e.target.value)}
+          placeholder="Enter your email"
         />
 
         <Input
@@ -37,11 +91,12 @@ function LoginPage() {
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
+          placeholder="Enter password"
         />
 
         <div className={styles.formActions}>
-          <Button onClick={handleLogin}>
-            🔐 Login
+          <Button onClick={handleLogin} disabled={loading}>
+            {loading ? "Logging in..." : "🚀 Login"}
           </Button>
         </div>
 

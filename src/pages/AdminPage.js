@@ -3,40 +3,53 @@ import { useApp } from '../context/AppContext';
 import StatCard from '../components/UI/StatCard';
 import Badge from '../components/UI/Badge';
 import Button from '../components/UI/Button';
-import { URGENCY_COLORS, STATUS_COLORS, TYPE_ICONS, SKILL_COLORS } from '../data/mockData';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { URGENCY_COLORS, STATUS_COLORS, TYPE_ICONS } from '../data/mockData';
 import { toast } from 'react-toastify';
 import styles from './AdminPage.module.css';
 
-const TABS = ['Overview', 'Needs', 'Volunteers', 'Analytics'];
+const TABS = ['Overview', 'Needs', 'Volunteers', 'Users', 'Activity'];
 
 function AdminPage() {
-  const { needs, volunteers, updateNeedStatus, deleteNeed } = useApp();
+  const {
+    needs = [],
+    volunteers = [],
+    users = [],
+    activities = [],
+    updateNeedStatus,
+    deleteNeed,
+    approveUser,
+    deleteUserAccount,
+    blockUser,
+    unblockUser,
+    user
+  } = useApp();
+
   const [tab, setTab] = useState('Overview');
 
-  const total     = needs.length;
-  const pending   = needs.filter(n => n.status === 'Pending').length;
-  const assigned  = needs.filter(n => n.status === 'Assigned').length;
+  // ❌ BLOCK NON-ADMIN
+  if (!user || user.role?.toLowerCase() !== 'admin') {
+    return (
+      <div style={{ padding: 40 }}>
+        <h2>⛔ Access Denied</h2>
+        <p>Only admin can access this page</p>
+      </div>
+    );
+  }
+
+  // 📊 Stats
+  const total = needs.length;
+  const pending = needs.filter(n => n.status === 'Pending').length;
+  const assigned = needs.filter(n => n.status === 'Assigned').length;
   const completed = needs.filter(n => n.status === 'Completed').length;
+
   const totalVols = volunteers.length;
   const available = volunteers.filter(v => v.available).length;
-  const rate      = total ? Math.round((completed / total) * 100) : 0;
+  const rate = total ? Math.round((completed / total) * 100) : 0;
 
-  // Fake weekly trend
-  const weekData = [
-    { day: 'Mon', needs: 4, resolved: 3 },
-    { day: 'Tue', needs: 6, resolved: 5 },
-    { day: 'Wed', needs: 3, resolved: 3 },
-    { day: 'Thu', needs: 8, resolved: 6 },
-    { day: 'Fri', needs: 5, resolved: 4 },
-    { day: 'Sat', needs: 7, resolved: 7 },
-    { day: 'Sun', needs: 4, resolved: 3 },
-  ];
+  const pendingUsers = users.filter(u => u.status === 'pending');
+  const activeUsers = users.filter(u => u.status !== 'deleted');
 
-  const typeData = Object.entries(
-    needs.reduce((acc, n) => { acc[n.type] = (acc[n.type] || 0) + 1; return acc; }, {})
-  ).map(([name, value]) => ({ name, value }));
-
+  // 🔥 HANDLERS
   const handleDelete = (id) => {
     if (window.confirm('Delete this need?')) {
       deleteNeed(id);
@@ -44,10 +57,44 @@ function AdminPage() {
     }
   };
 
-  const tooltipStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)' };
+  const handleApprove = async (uid) => {
+    await approveUser(uid);
+    toast.success("✅ User Approved");
+  };
+
+  const handleDeleteUser = async (uid) => {
+    if (uid === user.uid) {
+      toast.error("❌ You cannot delete yourself");
+      return;
+    }
+
+    if (window.confirm("Delete this user?") ) {
+      await deleteUserAccount(uid);
+      toast.error("❌ User deleted");
+    }
+  };
+
+  const handleBlockUser = async (uid) => {
+    await blockUser(uid);
+    toast.warn("🚫 User blocked");
+  };
+
+  const handleUnblockUser = async (uid) => {
+    await unblockUser(uid);
+    toast.success("🔓 User unblocked");
+  };
+
+  const getStatusColor = (status) => {
+    if (status === 'approved') return '#22c55e';
+    if (status === 'blocked') return '#ef4444';
+    if (status === 'pending') return '#f97316';
+    return '#64748b';
+  };
 
   return (
     <div>
+
+      {/* HEADER */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Admin Panel</h1>
@@ -56,167 +103,242 @@ function AdminPage() {
         <div className={styles.adminBadge}>⚙️ Administrator</div>
       </div>
 
-      {/* Tabs */}
+      {/* TABS */}
       <div className={styles.tabs}>
         {TABS.map(t => (
-          <button key={t} className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`} onClick={() => setTab(t)}>{t}</button>
+          <button
+            key={t}
+            className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
         ))}
       </div>
 
-      {tab === 'Overview' && (
-        <div>
-          <div className={styles.statsGrid}>
-            <StatCard icon="📋" label="Total Needs"      value={total}     color="#6366f1" />
-            <StatCard icon="⏳" label="Pending"          value={pending}   color="#f97316" />
-            <StatCard icon="🔄" label="Assigned"         value={assigned}  color="#3b82f6" />
-            <StatCard icon="✅" label="Completed"        value={completed} color="#22c55e" />
-            <StatCard icon="🙋" label="Total Volunteers" value={totalVols} color="#8b5cf6" />
-            <StatCard icon="🟢" label="Available"        value={available} color="#22c55e" />
-            <StatCard icon="📈" label="Completion Rate"  value={`${rate}%`} color="#f59e0b" />
+      {/* ================= USERS ================= */}
+      {tab === 'Users' && (
+        <div className={styles.tableCard}>
+
+          {/* 🔥 PENDING USERS */}
+          <h3 className={styles.cardTitle}>
+            Pending Registrations ({pendingUsers.length})
+          </h3>
+
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Proof</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {pendingUsers.map(u => (
+                  <tr key={u.uid}>
+                    <td>{u.email}</td>
+                    <td>{u.role}</td>
+
+                    <td>
+                      <Badge text={u.status} color="#f97316" size="sm" />
+                    </td>
+
+                    {/* ✅ PROOF */}
+                    <td>
+                      {u.proofUrl ? (
+                        <Button onClick={() => window.open(u.proofUrl, '_blank')}>
+                          📄 View
+                        </Button>
+                      ) : '—'}
+                    </td>
+
+                    <td>
+                      <Button onClick={() => handleApprove(u.uid)}>
+                        Approve
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          <div className={styles.chartsRow}>
-            <div className={styles.chartCard}>
-              <h3 className={styles.cardTitle}>Weekly Needs vs Resolved</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={weekData}>
-                  <XAxis dataKey="day" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Line type="monotone" dataKey="needs"    stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 4 }} />
-                  <Line type="monotone" dataKey="resolved" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-              <div className={styles.chartLegend}>
-                <span><span className={styles.dot} style={{ background: '#6366f1' }} /> Needs Posted</span>
-                <span><span className={styles.dot} style={{ background: '#22c55e' }} /> Resolved</span>
-              </div>
-            </div>
+          {/* 🔥 ALL USERS */}
+          <h3 className={styles.cardTitle} style={{ marginTop: 30 }}>
+            All Users ({activeUsers.length})
+          </h3>
 
-            <div className={styles.chartCard}>
-              <h3 className={styles.cardTitle}>Needs by Type</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={typeData} layout="vertical">
-                  <XAxis type="number" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="value" fill="#6366f1" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Proof</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {activeUsers.map(u => (
+                  <tr key={u.uid}>
+                    <td>{u.email}</td>
+                    <td>{u.role}</td>
+
+                    <td>
+                      <Badge
+                        text={u.status}
+                        color={getStatusColor(u.status)}
+                        size="sm"
+                      />
+                    </td>
+
+                    {/* ✅ PROOF */}
+                    <td>
+                      {u.proofUrl ? (
+                        <Button onClick={() => window.open(u.proofUrl, '_blank')}>
+                          📄 View
+                        </Button>
+                      ) : '—'}
+                    </td>
+
+                    <td>
+                      <div style={{ display: 'flex', gap: 8 }}>
+
+                        {u.status === 'approved' && (
+                          <Button onClick={() => handleBlockUser(u.uid)}>
+                            Block
+                          </Button>
+                        )}
+
+                        {u.status === 'blocked' && (
+                          <Button onClick={() => handleUnblockUser(u.uid)}>
+                            Unblock
+                          </Button>
+                        )}
+
+                        <Button
+                          disabled={u.uid === user.uid}
+                          onClick={() => handleDeleteUser(u.uid)}
+                        >
+                          Delete
+                        </Button>
+
+                      </div>
+                    </td>
+
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
         </div>
       )}
 
+      {/* ================= ACTIVITY ================= */}
+      {tab === 'Activity' && (
+        <div className={styles.tableCard}>
+          <h3 className={styles.cardTitle}>User Activity Logs</h3>
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Action</th>
+                <th>Proof</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {(activities || []).map(a => (
+                <tr key={a.id}>
+                  <td>{a.email}</td>
+                  <td>{a.action}</td>
+
+                  {/* ✅ PROOF */}
+                  <td>
+                    {a.proofUrl ? (
+                      <Button onClick={() => window.open(a.proofUrl, '_blank')}>
+                        📄 View
+                      </Button>
+                    ) : '—'}
+                  </td>
+
+                  {/* ✅ TIME */}
+                  <td>
+                    {a.createdAt?.toDate?.().toLocaleString() || '-'}
+                  </td>
+
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ================= OVERVIEW ================= */}
+      {tab === 'Overview' && (
+        <div className={styles.statsGrid}>
+          <StatCard icon="📋" label="Total Needs" value={total} color="#6366f1" />
+          <StatCard icon="⏳" label="Pending" value={pending} color="#f97316" />
+          <StatCard icon="🔄" label="Assigned" value={assigned} color="#3b82f6" />
+          <StatCard icon="✅" label="Completed" value={completed} color="#22c55e" />
+          <StatCard icon="🙋" label="Volunteers" value={totalVols} color="#8b5cf6" />
+          <StatCard icon="🟢" label="Available" value={available} color="#22c55e" />
+          <StatCard icon="📈" label="Completion Rate" value={`${rate}%`} color="#f59e0b" />
+        </div>
+      )}
+
+      {/* ================= NEEDS ================= */}
       {tab === 'Needs' && (
         <div className={styles.tableCard}>
-          <div className={styles.tableHeader}>
-            <h3 className={styles.cardTitle}>All Needs ({needs.length})</h3>
-          </div>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  {['Type', 'Title', 'Location', 'Urgency', 'Status', 'Posted By', 'Qty', 'Actions'].map(h => (
-                    <th key={h} className={styles.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {needs.map(n => (
-                  <tr key={n.id} className={styles.tr}>
-                    <td className={styles.td}>{TYPE_ICONS[n.type]} {n.type}</td>
-                    <td className={styles.td}><span className={styles.tdTitle}>{n.title}</span></td>
-                    <td className={styles.td}><span className={styles.muted}>{n.location}</span></td>
-                    <td className={styles.td}><Badge text={n.urgency} color={URGENCY_COLORS[n.urgency]} size="sm" /></td>
-                    <td className={styles.td}><Badge text={n.status}  color={STATUS_COLORS[n.status]}  size="sm" /></td>
-                    <td className={styles.td}><span className={styles.muted}>{n.postedBy}</span></td>
-                    <td className={styles.td}>{n.qty} {n.unit}</td>
-                    <td className={styles.td}>
-                      <div className={styles.rowActions}>
-                        {n.status === 'Pending' && (
-                          <button className={styles.actionBtn} onClick={() => { updateNeedStatus(n.id, 'Assigned'); toast.success('Marked as Assigned'); }}>Assign</button>
-                        )}
-                        {n.status === 'Assigned' && (
-                          <button className={styles.actionBtn} onClick={() => { updateNeedStatus(n.id, 'Completed'); toast.success('Marked as Completed'); }}>Complete</button>
-                        )}
-                        <button className={`${styles.actionBtn} ${styles.danger}`} onClick={() => handleDelete(n.id)}>Delete</button>
-                      </div>
-                    </td>
-                  </tr>
+          <h3 className={styles.cardTitle}>All Needs ({needs.length})</h3>
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                {['Type','Title','Location','Urgency','Status','Qty','Actions'].map(h => (
+                  <th key={h}>{h}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+              </tr>
+            </thead>
 
-      {tab === 'Volunteers' && (
-        <div className={styles.tableCard}>
-          <h3 className={styles.cardTitle}>All Volunteers ({volunteers.length})</h3>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  {['Name', 'Skill', 'Location', 'Distance', 'Availability', 'Tasks Done', 'Rating'].map(h => (
-                    <th key={h} className={styles.th}>{h}</th>
-                  ))}
+            <tbody>
+              {needs.map(n => (
+                <tr key={n.id}>
+                  <td>{TYPE_ICONS[n.type]} {n.type}</td>
+                  <td>{n.title}</td>
+                  <td>{n.location}</td>
+                  <td><Badge text={n.urgency} color={URGENCY_COLORS[n.urgency]} /></td>
+                  <td><Badge text={n.status} color={STATUS_COLORS[n.status]} /></td>
+                  <td>{n.qty} {n.unit}</td>
+
+                  <td>
+                    {n.status === 'Pending' && (
+                      <Button onClick={() => updateNeedStatus(n.id, 'Assigned')}>
+                        Assign
+                      </Button>
+                    )}
+
+                    <Button onClick={() => handleDelete(n.id)}>
+                      Delete
+                    </Button>
+                  </td>
+
                 </tr>
-              </thead>
-              <tbody>
-                {volunteers.map(v => (
-                  <tr key={v.id} className={styles.tr}>
-                    <td className={styles.td}>
-                      <div className={styles.volNameCell}>
-                        <div className={styles.miniAvatar} style={{ background: SKILL_COLORS[v.skill] + '33', color: SKILL_COLORS[v.skill] }}>{v.avatar}</div>
-                        {v.name}
-                      </div>
-                    </td>
-                    <td className={styles.td}><Badge text={v.skill} color={SKILL_COLORS[v.skill] || '#64748b'} size="sm" /></td>
-                    <td className={styles.td}><span className={styles.muted}>{v.location}</span></td>
-                    <td className={styles.td}>{v.distance} km</td>
-                    <td className={styles.td}><Badge text={v.available ? 'Available' : 'Busy'} color={v.available ? '#22c55e' : '#ef4444'} size="sm" /></td>
-                    <td className={styles.td}>{v.tasksCompleted}</td>
-                    <td className={styles.td}>⭐ {v.rating}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {tab === 'Analytics' && (
-        <div>
-          <div className={styles.analyticsGrid}>
-            {[
-              { label: 'Avg response time', value: '14 min', icon: '⏱️', color: '#3b82f6' },
-              { label: 'Volunteer utilisation', value: `${Math.round((available / totalVols) * 100)}%`, icon: '📊', color: '#8b5cf6' },
-              { label: 'Critical resolved', value: `${needs.filter(n => n.urgency === 'Critical' && n.status === 'Completed').length}`, icon: '🚨', color: '#ef4444' },
-              { label: 'Resources saved', value: '₹2.4L', icon: '💰', color: '#22c55e' },
-            ].map(m => (
-              <div key={m.label} className={styles.metricCard}>
-                <div className={styles.metricIcon}>{m.icon}</div>
-                <div className={styles.metricVal} style={{ color: m.color }}>{m.value}</div>
-                <div className={styles.metricLabel}>{m.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className={styles.chartCard} style={{ marginTop: 20 }}>
-            <h3 className={styles.cardTitle}>Weekly Activity Trend</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={weekData}>
-                <XAxis dataKey="day" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="needs"    fill="#6366f1" radius={[4, 4, 0, 0]} name="Needs Posted" />
-                <Bar dataKey="resolved" fill="#22c55e" radius={[4, 4, 0, 0]} name="Resolved" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

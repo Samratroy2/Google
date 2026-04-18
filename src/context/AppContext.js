@@ -27,6 +27,7 @@ export function AppProvider({ children }) {
   const [theme, setTheme] = useState('dark');
   const [needs, setNeeds] = useState([]);
   const [volunteers, setVolunteers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null);
 
   const [notifications, setNotifications] = useState([
@@ -35,7 +36,7 @@ export function AppProvider({ children }) {
 
   const [tick, setTick] = useState(0);
 
-  // 🔐 AUTH LISTENER
+  // 🔐 AUTH LISTENER (NO APPROVAL BLOCK)
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
@@ -52,13 +53,11 @@ export function AppProvider({ children }) {
 
       const data = snap.data();
 
-      // 🚨 BLOCK if not approved
-      if (data.status !== "approved") {
-        setUser(null);
-      } else {
-        setUser(u);
-      }
-
+      // ❌ REMOVE APPROVAL BLOCK
+      setUser({
+        ...u,
+        role: data.role || "General"
+      });
     });
 
     return () => unsub();
@@ -70,7 +69,7 @@ export function AppProvider({ children }) {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔄 NEEDS REALTIME
+  // 🔄 NEEDS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "needs"), (snap) => {
       setNeeds(snap.docs.map(doc => ({
@@ -82,10 +81,21 @@ export function AppProvider({ children }) {
     return () => unsub();
   }, [tick]);
 
-  // 🔄 VOLUNTEERS REALTIME
+  // 🔄 VOLUNTEERS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "volunteers"), (snap) => {
       setVolunteers(snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })));
+    });
+    return () => unsub();
+  }, []);
+
+  // 🔄 USERS
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
+      setUsers(snap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })));
@@ -102,16 +112,15 @@ export function AppProvider({ children }) {
     });
   };
 
-  // 🔐 SIGNUP (WITH ROLE)
-  const signup = async (email, password, role = "General", proofFile = null) => {
-
+  // 🔐 SIGNUP (AUTO APPROVED)
+  const signup = async (email, password, role = "General") => {
     const res = await createUserWithEmailAndPassword(auth, email, password);
 
     await setDoc(doc(db, "users", res.user.uid), {
       uid: res.user.uid,
       email,
       role,
-      status: role === "General" ? "approved" : "pending",
+      status: "approved", // ✅ ALWAYS APPROVED
       proofUrl: "",
       createdAt: serverTimestamp()
     });
@@ -119,9 +128,8 @@ export function AppProvider({ children }) {
     return res.user;
   };
 
-  // 🔐 LOGIN (CHECK APPROVAL)
+  // 🔐 LOGIN (NO BLOCK)
   const login = async (email, password) => {
-
     const res = await signInWithEmailAndPassword(auth, email, password);
 
     const snap = await getDoc(doc(db, "users", res.user.uid));
@@ -131,18 +139,44 @@ export function AppProvider({ children }) {
       throw new Error("User not found");
     }
 
-    const data = snap.data();
-
-    if (data.status !== "approved") {
-      await signOut(auth);
-      throw new Error("⛔ Awaiting admin approval");
-    }
-
     return res.user;
   };
 
   // 🔓 LOGOUT
   const logout = () => signOut(auth);
+
+  // ✏️ UPDATE USER
+  const updateUser = async (uid, data) => {
+    await updateDoc(doc(db, "users", uid), data);
+  };
+
+  // ✅ APPROVE USER (optional now)
+  const approveUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), {
+      status: "approved"
+    });
+  };
+
+  // 🚫 BLOCK USER
+  const blockUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), {
+      status: "blocked"
+    });
+  };
+
+  // 🔓 UNBLOCK USER
+  const unblockUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), {
+      status: "approved"
+    });
+  };
+
+  // ❌ DELETE USER (SOFT DELETE)
+  const deleteUserAccount = async (uid) => {
+    await updateDoc(doc(db, "users", uid), {
+      status: "deleted"
+    });
+  };
 
   // ➕ ADD NEED
   const addNeed = useCallback(async (need) => {
@@ -179,15 +213,26 @@ export function AppProvider({ children }) {
     await deleteDoc(doc(db, "volunteers", id));
   }, []);
 
+  // 🔔 NOTIFICATIONS
   const markAllRead = () =>
     setNotifications(n => n.map(x => ({ ...x, read: true })));
 
   return (
     <AppContext.Provider value={{
       theme, toggleTheme,
+
       needs, addNeed, updateNeedStatus, deleteNeed,
       volunteers, addVolunteer, deleteVolunteer,
+
       user, login, signup, logout,
+
+      users,
+      updateUser,
+      approveUser,
+      deleteUserAccount,
+      blockUser,
+      unblockUser,
+
       notifications, markAllRead
     }}>
       {children}

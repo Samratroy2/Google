@@ -3,55 +3,67 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import styles from './Sidebar.module.css';
 
-const NAV_ITEMS = [
-  { to: '/dashboard',  icon: '📊', label: 'Dashboard' },
-  { to: '/needs',      icon: '📋', label: 'Needs' },
-  { to: '/volunteers', icon: '🙋', label: 'Volunteers' },
-  { to: '/map',        icon: '🗺️', label: 'Live Map' },
-  { to: '/chatbot',    icon: '🤖', label: 'AI Chat' },
-  { to: '/admin',      icon: '⚙️', label: 'Admin' },
-];
-
 function Sidebar() {
-  const { needs, volunteers } = useApp();
-  const pending   = needs.filter(n => n.status === 'Pending').length;
+  const { needs = [], users = [], user } = useApp();
+
+  const pending = needs.filter(n => n.status === 'Pending').length;
+
+  // 🔥 VOLUNTEERS FROM USERS
+  const volunteers = users.filter(u =>
+    u.role === 'Volunteer' && u.status === 'approved'
+  );
+
   const available = volunteers.filter(v => v.available).length;
 
   return (
     <aside className={styles.sidebar}>
       <nav className={styles.nav}>
-        {NAV_ITEMS.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `${styles.link} ${isActive ? styles.active : ''}`
-            }
-          >
-            <span className={styles.icon}>{item.icon}</span>
-            <span className={styles.label}>{item.label}</span>
-            {item.to === '/needs' && pending > 0 && (
-              <span className={styles.pill}>{pending}</span>
-            )}
+
+        <NavLink to="/dashboard" className={styles.link}>
+          📊 Dashboard
+        </NavLink>
+
+        <NavLink to="/needs" className={styles.link}>
+          📋 Needs
+          {pending > 0 && <span className={styles.pill}>{pending}</span>}
+        </NavLink>
+
+        <NavLink to="/volunteers" className={styles.link}>
+          🙋 Volunteers
+        </NavLink>
+
+        <NavLink to="/map" className={styles.link}>
+          🗺️ Live Map
+        </NavLink>
+
+        <NavLink to="/chatbot" className={styles.link}>
+          🤖 AI Chat
+        </NavLink>
+
+        {/* 🔥 NEW PROFILE PAGE */}
+        <NavLink to="/profile" className={styles.link}>
+          👤 My Profile
+        </NavLink>
+
+        {/* 🔐 ADMIN ONLY */}
+        {user?.role?.toLowerCase() === 'admin' && (
+          <NavLink to="/admin" className={styles.link}>
+            ⚙️ Admin
           </NavLink>
-        ))}
+        )}
+
       </nav>
 
-      <div className={styles.aiStatus}>
-        <div className={styles.aiTitle}>🤖 AI STATUS</div>
-        <div className={styles.aiRow}><span className={styles.dot} style={{ background: '#22c55e' }} /> Matching Engine</div>
-        <div className={styles.aiRow}><span className={styles.dot} style={{ background: '#22c55e' }} /> NLP Classifier</div>
-        <div className={styles.aiRow}><span className={styles.dot} style={{ background: '#f59e0b' }} /> Demand Predictor</div>
-      </div>
-
+      {/* STATS */}
       <div className={styles.stats}>
         <div className={styles.statRow}>
-          <span className={styles.statLabel}>Pending needs</span>
-          <span className={styles.statVal} style={{ color: '#f97316' }}>{pending}</span>
+          <span>Pending needs</span>
+          <span style={{ color: '#f97316' }}>{pending}</span>
         </div>
+
         <div className={styles.statRow}>
-          <span className={styles.statLabel}>Available vols</span>
-          <span className={styles.statVal} style={{ color: '#22c55e' }}>{available}</span>
+          <span>Available vols</span>
+          <span style={{ color: '#22c55e' }}>{available}</span>
         </div>
       </div>
     </aside>

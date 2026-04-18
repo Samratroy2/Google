@@ -16,12 +16,12 @@ function VolunteerCard({ volunteer: v, showScore, compact, onDelete }) {
         .filter(Boolean);
 
   // ✅ SAFE FALLBACKS
-  const name = v.name || 'Unknown';
+  const name = v.username || 'Unknown';
   const location = v.location || 'Unknown';
   const distance = v.distance ?? 0;
   const rating = v.rating ?? 0;
   const tasks = v.tasksCompleted ?? 0;
-  const joined = v.joinedDate || '-';
+  const joined = v.createdAt?.toDate ? v.createdAt.toDate().toLocaleString() : '-';
   const avatar = v.avatar || '?';
   const available = v.available ?? false;
 
