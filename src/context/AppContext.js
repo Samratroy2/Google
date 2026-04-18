@@ -22,19 +22,35 @@ export function AppProvider({ children }) {
     { id: 3, text: '🤖 AI prediction: Food demand rising in Zone 3', time: '1h ago', read: true },
   ]);
 
-  // 🔄 REAL-TIME NEEDS
+  // ⏱️ TICK FOR LIVE TIME UPDATE
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 10000); // update every 10 sec
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🔄 REAL-TIME NEEDS + LIVE TIMEAGO
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "needs"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timeAgo: getTimeAgo(doc.data().createdAt)
-      }));
+      const data = snapshot.docs.map(doc => {
+        const d = doc.data();
+
+        return {
+          id: doc.id,
+          ...d,
+          timeAgo: getTimeAgo(d.createdAt)
+        };
+      });
+
       setNeeds(data);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [tick]); // 🔥 important for live updates
 
   // 🔄 REAL-TIME VOLUNTEERS
   useEffect(() => {
@@ -57,7 +73,7 @@ export function AppProvider({ children }) {
     });
   };
 
-  // ➕ ADD NEED (Firestore)
+  // ➕ ADD NEED
   const addNeed = useCallback(async (need) => {
     await addDoc(collection(db, "needs"), {
       ...need,
@@ -71,18 +87,18 @@ export function AppProvider({ children }) {
     ]);
   }, []);
 
-  // 🔄 UPDATE STATUS (Firestore)
+  // 🔄 UPDATE NEED STATUS
   const updateNeedStatus = useCallback(async (id, status) => {
     const ref = doc(db, "needs", id);
     await updateDoc(ref, { status });
   }, []);
 
-  // ❌ DELETE NEED (Firestore)
+  // ❌ DELETE NEED
   const deleteNeed = useCallback(async (id) => {
     await deleteDoc(doc(db, "needs", id));
   }, []);
 
-  // ➕ ADD VOLUNTEER (Firestore)
+  // ➕ ADD VOLUNTEER
   const addVolunteer = useCallback(async (volunteer) => {
     await addDoc(collection(db, "volunteers"), {
       ...volunteer,
@@ -97,6 +113,22 @@ export function AppProvider({ children }) {
     ]);
   }, []);
 
+  // ❌ DELETE VOLUNTEER
+  const deleteVolunteer = useCallback(async (id) => {
+    await deleteDoc(doc(db, "volunteers", id));
+
+    setNotifications(prev => [
+      {
+        id: Date.now(),
+        text: "🗑 Volunteer removed",
+        time: "Just now",
+        read: false
+      },
+      ...prev
+    ]);
+  }, []);
+
+  // 🔔 MARK ALL NOTIFICATIONS READ
   const markAllRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }, []);
@@ -107,7 +139,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       theme, toggleTheme,
       needs, addNeed, updateNeedStatus, deleteNeed,
-      volunteers, addVolunteer,
+      volunteers, addVolunteer, deleteVolunteer,
       notifications, markAllRead, unreadCount,
     }}>
       {children}
@@ -121,16 +153,20 @@ export function useApp() {
   return ctx;
 }
 
-// ⏱ Helper (NEW)
+// ⏱️ SMART TIME FORMATTER
 function getTimeAgo(timestamp) {
   if (!timestamp) return "Just now";
 
-  const diff = Date.now() - timestamp.toDate();
+  const diff = Date.now() - timestamp.toDate().getTime();
+
+  const mins = Math.floor(diff / 60000);
   const hrs = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
 
-  if (hrs < 1) return "Just now";
-  if (hrs < 24) return `${hrs} hrs ago`;
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min${mins > 1 ? 's' : ''} ago`;
+  if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
+  if (hrs < 48) return `${hrs} hr${hrs > 2 ? 's' : ''} ago`;
 
-  const days = Math.floor(hrs / 24);
-  return `${days} day(s) ago`;
+  return `${days} day${days > 1 ? 's' : ''} ago`;
 }
