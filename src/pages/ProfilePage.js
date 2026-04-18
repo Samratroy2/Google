@@ -141,7 +141,18 @@ function ProfilePage() {
         label="Hobby"
         value={form.skill}
         onChange={e => set('skill', e.target.value)}
-        options={["Doctor", "Teacher", "Logistics", "Counseling", "Driver", "Field worker", "Lawyer", "Nurse", "Online volunteer"]}
+        options={[
+          { value: "", label: "Select your hobby" },
+          { value: "Doctor", label: "Doctor" },
+          { value: "Teacher", label: "Teacher" },
+          { value: "Logistics", label: "Logistics" },
+          { value: "Counseling", label: "Counseling" },
+          { value: "Driver", label: "Driver" },
+          { value: "Field worker", label: "Field worker" },
+          { value: "Lawyer", label: "Lawyer" },
+          { value: "Nurse", label: "Nurse" },
+          { value: "Online volunteer", label: "Online volunteer" }
+        ]}
       />
 
       {/* LOCATION */}
