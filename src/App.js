@@ -10,8 +10,12 @@ import MapPage from './pages/MapPage';
 import ChatbotPage from './pages/ChatbotPage';
 import AdminPage from './pages/AdminPage';
 import PostNeedPage from './pages/PostNeedPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import AdminVerifyPage from './pages/AdminVerifyPage';
 
-// ✅ IMPORTANT: keep outside component
+import ProtectedRoute from './components/ProtectedRoute';
+
 const LIBRARIES = ['places'];
 
 function App() {
@@ -20,18 +24,48 @@ function App() {
       googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
       libraries={LIBRARIES}
     >
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/needs" element={<NeedsPage />} />
-          <Route path="/needs/post" element={<PostNeedPage />} />
-          <Route path="/volunteers" element={<VolunteersPage />} />
-          <Route path="/map" element={<MapPage />} />
-          <Route path="/chatbot" element={<ChatbotPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-        </Routes>
-      </Layout>
+      <Routes>
+
+        {/* ✅ PUBLIC ROUTES */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/admin-verify" element={<AdminVerifyPage />} />
+        
+        {/* ✅ PROTECTED APP */}
+        <Route path="/*" element={
+          <Layout>
+            <Routes>
+
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+
+              <Route path="/dashboard" element={
+                <ProtectedRoute><Dashboard /></ProtectedRoute>
+              } />
+
+              <Route path="/needs" element={
+                <ProtectedRoute><NeedsPage /></ProtectedRoute>
+              } />
+
+              <Route path="/needs/post" element={
+                <ProtectedRoute><PostNeedPage /></ProtectedRoute>
+              } />
+
+              <Route path="/volunteers" element={
+                <ProtectedRoute><VolunteersPage /></ProtectedRoute>
+              } />
+
+              <Route path="/map" element={
+                <ProtectedRoute><MapPage /></ProtectedRoute>
+              } />
+
+              <Route path="/chatbot" element={<ChatbotPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+
+            </Routes>
+          </Layout>
+        } />
+
+      </Routes>
     </LoadScript>
   );
 }

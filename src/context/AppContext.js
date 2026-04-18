@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+
 import {
   collection,
   onSnapshot,
@@ -7,64 +8,92 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  serverTimestamp
+  serverTimestamp,
+  setDoc,
+  getDoc
 } from "firebase/firestore";
+
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
+
   const [theme, setTheme] = useState('dark');
   const [needs, setNeeds] = useState([]);
   const [volunteers, setVolunteers] = useState([]);
+  const [user, setUser] = useState(null);
+
   const [notifications, setNotifications] = useState([
-    { id: 1, text: '🔔 New need posted in Sector 4', time: '2m ago', read: false },
-    { id: 2, text: '✅ Volunteer matched for Medical need', time: '10m ago', read: false },
-    { id: 3, text: '🤖 AI prediction: Food demand rising in Zone 3', time: '1h ago', read: true },
+    { id: 1, text: '🔔 New need posted', time: '2m ago', read: false }
   ]);
 
-  // ⏱️ TICK FOR LIVE TIME UPDATE
   const [tick, setTick] = useState(0);
 
+  // 🔐 AUTH LISTENER
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-    }, 10000); // update every 10 sec
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setUser(null);
+        return;
+      }
 
+      const snap = await getDoc(doc(db, "users", u.uid));
+
+      if (!snap.exists()) {
+        setUser(null);
+        return;
+      }
+
+      const data = snap.data();
+
+      // 🚨 BLOCK if not approved
+      if (data.status !== "approved") {
+        setUser(null);
+      } else {
+        setUser(u);
+      }
+
+    });
+
+    return () => unsub();
+  }, []);
+
+  // ⏱️ TIME TICK
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // 🔄 REAL-TIME NEEDS + LIVE TIMEAGO
+  // 🔄 NEEDS REALTIME
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "needs"), (snapshot) => {
-      const data = snapshot.docs.map(doc => {
-        const d = doc.data();
-
-        return {
-          id: doc.id,
-          ...d,
-          timeAgo: getTimeAgo(d.createdAt)
-        };
-      });
-
-      setNeeds(data);
+    const unsub = onSnapshot(collection(db, "needs"), (snap) => {
+      setNeeds(snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timeAgo: getTimeAgo(doc.data().createdAt)
+      })));
     });
+    return () => unsub();
+  }, [tick]);
 
-    return () => unsubscribe();
-  }, [tick]); // 🔥 important for live updates
-
-  // 🔄 REAL-TIME VOLUNTEERS
+  // 🔄 VOLUNTEERS REALTIME
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "volunteers"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
+    const unsub = onSnapshot(collection(db, "volunteers"), (snap) => {
+      setVolunteers(snap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
-      setVolunteers(data);
+      })));
     });
-
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  // 🎨 THEME
   const toggleTheme = () => {
     setTheme(t => {
       const next = t === 'dark' ? 'light' : 'dark';
@@ -73,24 +102,61 @@ export function AppProvider({ children }) {
     });
   };
 
+  // 🔐 SIGNUP (WITH ROLE)
+  const signup = async (email, password, role = "General", proofFile = null) => {
+
+    const res = await createUserWithEmailAndPassword(auth, email, password);
+
+    await setDoc(doc(db, "users", res.user.uid), {
+      uid: res.user.uid,
+      email,
+      role,
+      status: role === "General" ? "approved" : "pending",
+      proofUrl: "",
+      createdAt: serverTimestamp()
+    });
+
+    return res.user;
+  };
+
+  // 🔐 LOGIN (CHECK APPROVAL)
+  const login = async (email, password) => {
+
+    const res = await signInWithEmailAndPassword(auth, email, password);
+
+    const snap = await getDoc(doc(db, "users", res.user.uid));
+
+    if (!snap.exists()) {
+      await signOut(auth);
+      throw new Error("User not found");
+    }
+
+    const data = snap.data();
+
+    if (data.status !== "approved") {
+      await signOut(auth);
+      throw new Error("⛔ Awaiting admin approval");
+    }
+
+    return res.user;
+  };
+
+  // 🔓 LOGOUT
+  const logout = () => signOut(auth);
+
   // ➕ ADD NEED
   const addNeed = useCallback(async (need) => {
     await addDoc(collection(db, "needs"), {
       ...need,
       status: 'Pending',
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      postedBy: user?.email || "Anonymous"
     });
+  }, [user]);
 
-    setNotifications(prev => [
-      { id: Date.now(), text: `🔔 New need posted: ${need.title}`, time: 'Just now', read: false },
-      ...prev
-    ]);
-  }, []);
-
-  // 🔄 UPDATE NEED STATUS
+  // 🔄 UPDATE NEED
   const updateNeedStatus = useCallback(async (id, status) => {
-    const ref = doc(db, "needs", id);
-    await updateDoc(ref, { status });
+    await updateDoc(doc(db, "needs", id), { status });
   }, []);
 
   // ❌ DELETE NEED
@@ -99,48 +165,30 @@ export function AppProvider({ children }) {
   }, []);
 
   // ➕ ADD VOLUNTEER
-  const addVolunteer = useCallback(async (volunteer) => {
+  const addVolunteer = useCallback(async (v) => {
     await addDoc(collection(db, "volunteers"), {
-      ...volunteer,
+      ...v,
       tasksCompleted: 0,
-      rating: 5.0,
+      rating: 5,
       joinedDate: new Date().toISOString().split('T')[0]
     });
-
-    setNotifications(prev => [
-      { id: Date.now(), text: `🙋 New volunteer registered: ${volunteer.name}`, time: 'Just now', read: false },
-      ...prev
-    ]);
   }, []);
 
   // ❌ DELETE VOLUNTEER
   const deleteVolunteer = useCallback(async (id) => {
     await deleteDoc(doc(db, "volunteers", id));
-
-    setNotifications(prev => [
-      {
-        id: Date.now(),
-        text: "🗑 Volunteer removed",
-        time: "Just now",
-        read: false
-      },
-      ...prev
-    ]);
   }, []);
 
-  // 🔔 MARK ALL NOTIFICATIONS READ
-  const markAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const markAllRead = () =>
+    setNotifications(n => n.map(x => ({ ...x, read: true })));
 
   return (
     <AppContext.Provider value={{
       theme, toggleTheme,
       needs, addNeed, updateNeedStatus, deleteNeed,
       volunteers, addVolunteer, deleteVolunteer,
-      notifications, markAllRead, unreadCount,
+      user, login, signup, logout,
+      notifications, markAllRead
     }}>
       {children}
     </AppContext.Provider>
@@ -148,25 +196,20 @@ export function AppProvider({ children }) {
 }
 
 export function useApp() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useApp must be used within AppProvider');
-  return ctx;
+  return useContext(AppContext);
 }
 
-// ⏱️ SMART TIME FORMATTER
-function getTimeAgo(timestamp) {
-  if (!timestamp) return "Just now";
+// ⏱️ TIME FORMAT
+function getTimeAgo(ts) {
+  if (!ts) return "Just now";
 
-  const diff = Date.now() - timestamp.toDate().getTime();
-
+  const diff = Date.now() - ts.toDate();
   const mins = Math.floor(diff / 60000);
   const hrs = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
 
   if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} min${mins > 1 ? 's' : ''} ago`;
-  if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
-  if (hrs < 48) return `${hrs} hr${hrs > 2 ? 's' : ''} ago`;
+  if (mins < 60) return `${mins}m ago`;
+  if (hrs < 24) return `${hrs}h ago`;
 
-  return `${days} day${days > 1 ? 's' : ''} ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }

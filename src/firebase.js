@@ -1,7 +1,6 @@
-// Import the functions you need
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-// (optional) analytics
+import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -14,11 +13,9 @@ const firebaseConfig = {
   measurementId: "G-RRLQVC5CKV"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// ✅ ADD THIS (this was missing)
 export const db = getFirestore(app);
+export const auth = getAuth(app);
 
-// (optional)
-const analytics = getAnalytics(app);
+getAnalytics(app);

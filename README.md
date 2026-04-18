@@ -57,7 +57,7 @@ smartaid/
     │   │   └── MatchModal.js     # AI match results modal
     │   └── Volunteers/
     │       └── VolunteerCard.js  # Volunteer profile card
-    └── pages/
+    ├──pages/
         ├── Dashboard.js          # Overview + charts
         ├── Dashboard.module.css
         ├── NeedsPage.js          # Browse & manage needs
@@ -66,12 +66,16 @@ smartaid/
         ├── PostNeedPage.module.css
         ├── VolunteersPage.js     # Volunteer directory
         ├── VolunteersPage.module.css
-        ├── MapPage.js            # Live SVG map view
+        ├── MapPage.js            # Live map view
         ├── MapPage.module.css
         ├── ChatbotPage.js        # AI chatbot assistant
         ├── ChatbotPage.module.css
         ├── AdminPage.js          # Admin control panel
         └── AdminPage.module.css
+    └── firebase.js
+  └──.env
+
+
 ```
 
 ---
