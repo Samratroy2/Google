@@ -10,26 +10,29 @@ import {
 } from '../data/mockData';
 import styles from './MapPage.module.css';
 
-// ✅ Map container
 const containerStyle = {
   width: '100%',
   height: '520px'
 };
 
-// ✅ Default center (fallback)
 const defaultCenter = {
   lat: 23.55,
   lng: 87.30
 };
 
 function MapPage() {
-  const { needs, volunteers } = useApp();
+  const { needs, users } = useApp(); // ✅ FIX
 
   const [selected, setSelected] = useState(null);
   const [showNeeds, setShowNeeds] = useState(true);
   const [showVols, setShowVols] = useState(true);
 
-  // ✅ Smart center (latest need OR fallback)
+  // ✅ FILTER REAL VOLUNTEERS
+  const volunteers = users.filter(
+    u => u.role === "Volunteer" && u.status === "approved"
+  );
+
+  // ✅ SMART CENTER
   const center =
     needs.length > 0 && needs[0]?.lat
       ? { lat: needs[0].lat, lng: needs[0].lng }
@@ -37,7 +40,8 @@ function MapPage() {
 
   return (
     <div>
-      {/* 🔹 HEADER */}
+
+      {/* HEADER */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Live Map View</h1>
@@ -48,18 +52,14 @@ function MapPage() {
 
         <div className={styles.toggles}>
           <button
-            className={`${styles.toggle} ${
-              showNeeds ? styles.toggleActive : ''
-            }`}
+            className={`${styles.toggle} ${showNeeds ? styles.toggleActive : ''}`}
             onClick={() => setShowNeeds(s => !s)}
           >
             🔴 Needs
           </button>
 
           <button
-            className={`${styles.toggle} ${
-              showVols ? styles.toggleActive : ''
-            }`}
+            className={`${styles.toggle} ${showVols ? styles.toggleActive : ''}`}
             onClick={() => setShowVols(s => !s)}
           >
             🟢 Volunteers
@@ -67,14 +67,10 @@ function MapPage() {
         </div>
       </div>
 
-      {/* 🗺️ GOOGLE MAP */}
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={center}
-        zoom={12}
-      >
+      {/* MAP */}
+      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={12}>
 
-        {/* 🔴 NEED MARKERS */}
+        {/* 🔴 NEEDS */}
         {showNeeds &&
           needs.map(n =>
             n.lat && n.lng ? (
@@ -87,20 +83,26 @@ function MapPage() {
             ) : null
           )}
 
-        {/* 🟢 VOLUNTEER MARKERS */}
+        {/* 🟢 VOLUNTEERS */}
         {showVols &&
           volunteers.map(v =>
             v.lat && v.lng ? (
               <Marker
-                key={v.id}
+                key={v.uid}
                 position={{ lat: v.lat, lng: v.lng }}
                 icon="http://maps.google.com/mapfiles/ms/icons/green-dot.png"
-                onClick={() => setSelected({ ...v, kind: 'vol' })}
+                onClick={() =>
+                  setSelected({
+                    ...v,
+                    kind: 'vol',
+                    name: v.username || v.email?.split('@')[0]
+                  })
+                }
               />
             ) : null
           )}
 
-        {/* 📦 INFO WINDOW */}
+        {/* INFO WINDOW */}
         {selected && selected.lat && selected.lng && (
           <InfoWindow
             position={{ lat: selected.lat, lng: selected.lng }}
@@ -108,19 +110,16 @@ function MapPage() {
           >
             <div style={{ minWidth: 220 }}>
 
-              {/* 🔴 NEED DETAILS */}
+              {/* NEED */}
               {selected.kind === 'need' ? (
                 <>
                   <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
-                    {TYPE_ICONS[selected.category || selected.type]}{' '}
-                    {selected.title}
+                    {TYPE_ICONS[selected.type]} {selected.title}
                   </div>
 
-                  <p style={{ margin: '4px 0' }}>
-                    📍 {selected.location}
-                  </p>
+                  <p>📍 {selected.location}</p>
 
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
                     <Badge
                       text={selected.urgency}
                       color={URGENCY_COLORS[selected.urgency]}
@@ -133,29 +132,26 @@ function MapPage() {
                     />
                   </div>
 
-                  <p>
-                    Qty: {selected.qty} {selected.unit}
-                  </p>
+                  <p>Qty: {selected.qty} {selected.unit}</p>
                 </>
               ) : (
-                /* 🟢 VOLUNTEER DETAILS */
+                /* VOLUNTEER */
                 <>
-                  <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 'bold' }}>
                     {selected.name}
                   </div>
 
-                  <p>{selected.skill}</p>
+                  <p>{selected.skill || 'No skill'}</p>
                   <p>📍 {selected.location}</p>
 
                   <Badge
-                    text={selected.available ? 'Available' : 'Busy'}
-                    color={selected.available ? '#22c55e' : '#ef4444'}
+                    text={selected.available !== false ? 'Available' : 'Busy'}
+                    color={selected.available !== false ? '#22c55e' : '#ef4444'}
                     size="sm"
                   />
 
-                  <p style={{ marginTop: 6 }}>
-                    {selected.distance || 0} km away ·{' '}
-                    {selected.tasksCompleted || 0} tasks
+                  <p>
+                    ⭐ {selected.rating || 0} · {selected.tasksCompleted || 0} tasks
                   </p>
                 </>
               )}
@@ -164,15 +160,12 @@ function MapPage() {
         )}
       </GoogleMap>
 
-      {/* 📋 SIDE LISTS */}
+      {/* LISTS */}
       <div className={styles.lists}>
+
         {/* NEED LIST */}
         <div className={styles.listCard}>
           <h3>🔴 Active Needs ({needs.length})</h3>
-
-          {needs.length === 0 && (
-            <div className={styles.empty}>No needs available</div>
-          )}
 
           {needs.map(n => (
             <div
@@ -180,9 +173,7 @@ function MapPage() {
               className={styles.listItem}
               onClick={() => setSelected({ ...n, kind: 'need' })}
             >
-              <span>
-                {TYPE_ICONS[n.category || n.type]}
-              </span>
+              <span>{TYPE_ICONS[n.type]}</span>
 
               <div className={styles.listInfo}>
                 <div className={styles.listName}>{n.title}</div>
@@ -198,34 +189,38 @@ function MapPage() {
           ))}
         </div>
 
-        {/* VOLUNTEER LIST */}
+        {/* VOL LIST */}
         <div className={styles.listCard}>
           <h3>🟢 Volunteers ({volunteers.length})</h3>
 
-          {volunteers.length === 0 && (
-            <div className={styles.empty}>No volunteers</div>
-          )}
-
           {volunteers.map(v => (
             <div
-              key={v.id}
+              key={v.uid}
               className={styles.listItem}
-              onClick={() => setSelected({ ...v, kind: 'vol' })}
+              onClick={() =>
+                setSelected({
+                  ...v,
+                  kind: 'vol',
+                  name: v.username || v.email?.split('@')[0]
+                })
+              }
             >
               <div
                 className={styles.miniAvatar}
                 style={{
-                  background: SKILL_COLORS[v.skill] + '33',
-                  color: SKILL_COLORS[v.skill]
+                  background: (SKILL_COLORS[v.skill] || '#64748b') + '33',
+                  color: SKILL_COLORS[v.skill] || '#64748b'
                 }}
               >
-                {v.avatar || '?'}
+                {(v.username || v.email || '?')[0]}
               </div>
 
               <div className={styles.listInfo}>
-                <div className={styles.listName}>{v.name}</div>
+                <div className={styles.listName}>
+                  {v.username || v.email?.split('@')[0]}
+                </div>
                 <div className={styles.listMeta}>
-                  {v.skill} · {v.distance || 0} km
+                  {v.skill || 'No skill'} · {v.location || 'Unknown'}
                 </div>
               </div>
 
@@ -235,6 +230,7 @@ function MapPage() {
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );

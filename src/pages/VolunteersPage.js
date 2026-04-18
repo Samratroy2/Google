@@ -12,11 +12,7 @@ import styles from './VolunteersPage.module.css';
 
 const EMPTY_FORM = {
   skill: 'Helper',
-  location: '',
-  available: 'true',
-  phone: '',
-  bio: '',
-  subSkills: ''
+  location: ''
 };
 
 function VolunteersPage() {
@@ -25,8 +21,6 @@ function VolunteersPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [search, setSearch] = useState('');
-  const [filterSkill, setFilterSkill] = useState('All');
-  const [filterAvail, setFilterAvail] = useState('All');
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -42,16 +36,7 @@ function VolunteersPage() {
     );
   }
 
-  // ⏳ NOT APPROVED
-  if (currentUser?.status === 'pending') {
-    return (
-      <div style={{ padding: 40 }}>
-        <h2>⏳ Waiting for Approval</h2>
-      </div>
-    );
-  }
-
-  // 🔥 FILTER VOLUNTEERS FROM USERS
+  // 🔥 GET VOLUNTEERS FROM USERS
   const volunteers = users.filter(u =>
     u.role === "Volunteer" &&
     u.status === "approved"
@@ -59,7 +44,7 @@ function VolunteersPage() {
 
   const alreadyVolunteer = currentUser?.role === "Volunteer";
 
-  // ✅ REGISTER AS VOLUNTEER (UPDATE USER DOC)
+  // ✅ REGISTER
   const handleRegister = async () => {
     if (!form.location.trim()) {
       toast.error("Location required");
@@ -70,30 +55,18 @@ function VolunteersPage() {
       role: "Volunteer",
       skill: form.skill,
       location: form.location,
-      available: form.available === 'true',
-      phone: form.phone,
-      bio: form.bio,
-      subSkills: form.subSkills.split(',').map(s => s.trim())
+      available: true
     });
 
     toast.success("✅ You are now a volunteer!");
     setShowModal(false);
   };
 
-  // 🔍 FILTER
-  const filtered = volunteers.filter(v => {
-    if (filterSkill !== 'All' && v.skill !== filterSkill) return false;
-    if (filterAvail === 'Available' && !v.available) return false;
-    if (filterAvail === 'Busy' && v.available) return false;
-
-    if (
-      search &&
-      !v.email.toLowerCase().includes(search.toLowerCase()) &&
-      !v.location?.toLowerCase().includes(search.toLowerCase())
-    ) return false;
-
-    return true;
-  });
+  // 🔍 SIMPLE SEARCH
+  const filtered = volunteers.filter(v =>
+    v.email?.toLowerCase().includes(search.toLowerCase()) ||
+    v.location?.toLowerCase().includes(search.toLowerCase())
+  );
 
   const available = volunteers.filter(v => v.available).length;
 
@@ -120,7 +93,7 @@ function VolunteersPage() {
       <div className={styles.filterBar}>
         <input
           className={styles.search}
-          placeholder="Search..."
+          placeholder="Search by email or location..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -136,8 +109,8 @@ function VolunteersPage() {
           key={v.uid}
           volunteer={{
             ...v,
-            name: v.email.split('@')[0],
-            avatar: getInitials(v.email)
+            name: v.username || v.email?.split('@')[0],
+            avatar: getInitials(v.username || v.email)
           }}
         />
       ))}
@@ -147,7 +120,7 @@ function VolunteersPage() {
         open={showModal}
         onClose={() => setShowModal(false)}
         title="Become Volunteer"
-        width={520}
+        width={480}
       >
         <Input
           label="Location"
@@ -164,7 +137,7 @@ function VolunteersPage() {
 
         <div style={{ marginTop: 20 }}>
           <Button onClick={handleRegister}>
-            Register
+            🚀 Register
           </Button>
         </div>
       </Modal>

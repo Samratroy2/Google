@@ -14,14 +14,14 @@ const TYPES     = ['All', 'Food', 'Medical', 'Shelter', 'Water', 'Other'];
 const URGENCIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
 
 function NeedsPage() {
-  const { needs, volunteers, updateNeedStatus, deleteNeed } = useApp();
+  const { needs, users, updateNeedStatus, deleteNeed } = useApp();
   const navigate = useNavigate();
   const { filters, setFilter, filtered } = useFilters(needs, ['title', 'location', 'postedBy']);
 
   const [matchState, setMatchState] = useState({ open: false, need: null, matches: [] });
 
   const handleMatch = (need) => {
-    const matches = aiMatchVolunteers(need, volunteers);
+    const matches = aiMatchVolunteers(need, users);
     setMatchState({ open: true, need, matches });
   };
 

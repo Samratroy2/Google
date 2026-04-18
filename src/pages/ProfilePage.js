@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import Button from '../components/UI/Button';
 import Input from '../components/UI/Input';
 import Select from '../components/UI/Select';
 import { toast } from 'react-toastify';
+import { Autocomplete } from "@react-google-maps/api";
 
 function ProfilePage() {
   const { user, users, updateUser } = useApp();
 
   const current = users.find(u => u.uid === user?.uid);
+
+  const autoRef = useRef(null);
+  const [coords, setCoords] = useState({ lat: null, lng: null });
 
   const [form, setForm] = useState({
     username: '',
@@ -22,6 +26,25 @@ function ProfilePage() {
     available: true,
     proofUrl: ''
   });
+
+  // 📍 Auto-detect location (fallback)
+  const detectCurrentLocation = () => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        setCoords({ lat, lng });
+
+        console.log("📍 Auto location set:", lat, lng);
+      },
+      () => {
+        console.warn("Location permission denied");
+      }
+    );
+  };
 
   // 🔥 LOAD DATA
   useEffect(() => {
@@ -40,12 +63,42 @@ function ProfilePage() {
         available: current.available ?? true,
         proofUrl: current.proofUrl || ''
       });
+
+      // ✅ preload coords OR fallback
+      if (current.lat && current.lng) {
+        setCoords({
+          lat: current.lat,
+          lng: current.lng
+        });
+      } else {
+        detectCurrentLocation(); // fallback
+      }
     }
   }, [current]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // 💾 SAVE FUNCTION
+  // ✅ GOOGLE PLACE SELECT
+  const handlePlaceSelect = () => {
+    const place = autoRef.current.getPlace();
+
+    if (!place || !place.geometry) {
+      toast.error("❌ Select location from dropdown");
+      return;
+    }
+
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+
+    setCoords({ lat, lng });
+
+    setForm(f => ({
+      ...f,
+      location: place.formatted_address || place.name
+    }));
+  };
+
+  // 💾 SAVE
   const handleSave = async () => {
     if (!form.username.trim()) {
       toast.error("⚠️ Username required");
@@ -54,6 +107,11 @@ function ProfilePage() {
 
     if (!form.proofUrl) {
       toast.error("⚠️ Proof required");
+      return;
+    }
+
+    if (!coords.lat) {
+      toast.error("❌ Please select location properly");
       return;
     }
 
@@ -66,6 +124,10 @@ function ProfilePage() {
         role: form.role,
         skill: form.skill,
         location: form.location,
+
+        lat: coords.lat,   // ✅ FIXED
+        lng: coords.lng,   // ✅ FIXED
+
         phone: form.phone,
         bio: form.bio,
         available: form.available,
@@ -75,7 +137,6 @@ function ProfilePage() {
           ? form.subSkills.split(',').map(s => s.trim())
           : [],
 
-        // ✅ ADMIN AUTO APPROVED
         status: isAdmin ? "approved" : "pending"
       });
 
@@ -105,12 +166,11 @@ function ProfilePage() {
 
       {/* HEADER */}
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ marginBottom: 5 }}>👤 Edit Profile</h2>
+        <h2>👤 Edit Profile</h2>
         <p style={{ color: 'var(--muted)', fontSize: 13 }}>
           Update your details
         </p>
 
-        {/* ✅ ADMIN INFO */}
         {current.role === "Admin" && (
           <div style={{ color: '#22c55e', fontSize: 12 }}>
             ⚡ Admin changes apply instantly
@@ -118,25 +178,20 @@ function ProfilePage() {
         )}
       </div>
 
-      {/* UID */}
       <Input label="User ID (UID)" value={current.uid} disabled />
 
-      {/* USERNAME */}
       <Input
         label="Username"
         value={form.username}
         onChange={e => set('username', e.target.value)}
       />
 
-      {/* EMAIL */}
       <Input
         label="Email"
         value={form.email}
         onChange={e => set('email', e.target.value)}
       />
 
-
-      {/* SKILL */}
       <Select
         label="Hobby"
         value={form.skill}
@@ -155,48 +210,40 @@ function ProfilePage() {
         ]}
       />
 
-      {/* LOCATION */}
-      <Input
-        label="Location"
-        value={form.location}
-        onChange={e => set('location', e.target.value)}
-      />
+      {/* ✅ GOOGLE LOCATION */}
+      <Autocomplete
+        onLoad={(ref) => (autoRef.current = ref)}
+        onPlaceChanged={handlePlaceSelect}
+      >
+        <Input
+          label="Location"
+          value={form.location}
+          onChange={e => {
+            set('location', e.target.value);
+            setCoords({ lat: null, lng: null }); // force correct selection
+          }}
+        />
+      </Autocomplete>
 
-      {/* PHONE */}
       <Input
         label="Phone"
         value={form.phone}
         onChange={e => set('phone', e.target.value)}
       />
 
-      {/* SUB SKILLS */}
       <Input
-        label="Sub Skills (comma separated)"
+        label="Sub Skills"
         value={form.subSkills}
         onChange={e => set('subSkills', e.target.value)}
-        placeholder="e.g. Surgery, First Aid"
       />
 
-      {/* BIO */}
-      <div style={{ marginTop: 12 }}>
-        <label style={{ fontWeight: 600 }}>Bio</label>
-        <textarea
-          value={form.bio}
-          onChange={e => set('bio', e.target.value)}
-          style={{
-            width: '100%',
-            minHeight: 100,
-            padding: 12,
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            marginTop: 6,
-            resize: 'vertical'
-          }}
-          placeholder="Tell something about yourself..."
-        />
-      </div>
+      <textarea
+        value={form.bio}
+        onChange={e => set('bio', e.target.value)}
+        placeholder="Bio"
+        style={{ width: '100%', marginTop: 10, padding: 10 }}
+      />
 
-      {/* AVAILABILITY */}
       <Select
         label="Availability"
         value={form.available ? "true" : "false"}
@@ -207,15 +254,13 @@ function ProfilePage() {
         ]}
       />
 
-      {/* PROOF */}
       <Input
         label="Proof URL"
         value={form.proofUrl}
         onChange={e => set('proofUrl', e.target.value)}
       />
 
-      {/* SAVE BUTTON */}
-      <div style={{ marginTop: 24 }}>
+      <div style={{ marginTop: 20 }}>
         <Button onClick={handleSave} style={{ width: '100%' }}>
           💾 Save Changes
         </Button>
