@@ -140,3 +140,10 @@
 .ratingBadge { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 @media (max-width: 768px) { .lists { grid-template-columns: 1fr; } }
+
+
+
+
+
+
+

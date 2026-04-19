@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, Marker, OverlayView } from '@react-google-maps/api';
 import Badge from '../components/UI/Badge';
 import {
   URGENCY_COLORS,
@@ -21,22 +21,28 @@ const defaultCenter = {
 };
 
 function MapPage() {
-  const { needs, users } = useApp(); // ✅ FIX
+  const { needs, users } = useApp();
 
   const [selected, setSelected] = useState(null);
   const [showNeeds, setShowNeeds] = useState(true);
   const [showVols, setShowVols] = useState(true);
 
-  // ✅ FILTER REAL VOLUNTEERS
-  const volunteers = users.filter(
-    u => u.role === "Volunteer" && u.status === "approved"
+  // ✅ FIX: force map refresh when data changes
+  const mapKey = `${needs.length}-${users.length}`;
+
+  // ✅ SAME LOGIC
+  const volunteers = users.filter(u =>
+    (u.role || '').toLowerCase() === "volunteer" &&
+    (u.status || 'approved') !== "blocked" &&
+    u.lat && u.lng
   );
 
-  // ✅ SMART CENTER
-  const center =
-    needs.length > 0 && needs[0]?.lat
-      ? { lat: needs[0].lat, lng: needs[0].lng }
-      : defaultCenter;
+  const validNeeds = needs.filter(n => n.lat && n.lng);
+
+  const allPoints = [...validNeeds, ...volunteers];
+  const center = allPoints.length
+    ? { lat: allPoints[0].lat, lng: allPoints[0].lng }
+    : defaultCenter;
 
   return (
     <div>
@@ -68,49 +74,94 @@ function MapPage() {
       </div>
 
       {/* MAP */}
-      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={12}>
+      <GoogleMap
+        key={mapKey}   // 🔥 IMPORTANT FIX
+        mapContainerStyle={containerStyle}
+        center={center}
+        zoom={12}
+      >
 
         {/* 🔴 NEEDS */}
-        {showNeeds &&
-          needs.map(n =>
-            n.lat && n.lng ? (
-              <Marker
-                key={n.id}
-                position={{ lat: n.lat, lng: n.lng }}
-                icon="http://maps.google.com/mapfiles/ms/icons/red-dot.png"
-                onClick={() => setSelected({ ...n, kind: 'need' })}
-              />
-            ) : null
-          )}
+        {showNeeds && validNeeds.map(n => (
+          <OverlayView
+            key={`need-${n.id}`}   // 🔥 FIX
+            position={{ lat: n.lat, lng: n.lng }}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+          >
+            <div
+              onClick={() => setSelected({ ...n, kind: 'need' })}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: '#ef4444',
+                position: 'relative',
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: '#ef4444',
+                animation: 'pulse 1.5s infinite',
+                opacity: 0.6
+              }} />
+            </div>
+          </OverlayView>
+        ))}
 
         {/* 🟢 VOLUNTEERS */}
-        {showVols &&
-          volunteers.map(v =>
-            v.lat && v.lng ? (
-              <Marker
-                key={v.uid}
-                position={{ lat: v.lat, lng: v.lng }}
-                icon="http://maps.google.com/mapfiles/ms/icons/green-dot.png"
-                onClick={() =>
-                  setSelected({
-                    ...v,
-                    kind: 'vol',
-                    name: v.username || v.email?.split('@')[0]
-                  })
-                }
-              />
-            ) : null
-          )}
+        {showVols && volunteers.map(v => (
+          <Marker
+            key={`vol-${v.uid}`}   // 🔥 FIX
+            position={{ lat: v.lat, lng: v.lng }}
+            icon={{
+              url: "https://cdn-icons-png.flaticon.com/512/1946/1946429.png",
+              scaledSize: new window.google.maps.Size(32, 32)
+            }}
+            onClick={() =>
+              setSelected({
+                ...v,
+                kind: 'vol',
+                name: v.username || v.email?.split('@')[0]
+              })
+            }
+          />
+        ))}
 
-        {/* INFO WINDOW */}
+        {/* POPUP */}
         {selected && selected.lat && selected.lng && (
-          <InfoWindow
+          <OverlayView
             position={{ lat: selected.lat, lng: selected.lng }}
-            onCloseClick={() => setSelected(null)}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
-            <div style={{ minWidth: 220 }}>
+            <div
+              style={{
+                minWidth: 220,
+                background: "var(--card)",
+                color: "var(--text)",
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+                position: "relative"
+              }}
+            >
+              <div
+                onClick={() => setSelected(null)}
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 8,
+                  cursor: "pointer",
+                  fontSize: 14
+                }}
+              >
+                ✕
+              </div>
 
-              {/* NEED */}
               {selected.kind === 'need' ? (
                 <>
                   <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
@@ -135,7 +186,6 @@ function MapPage() {
                   <p>Qty: {selected.qty} {selected.unit}</p>
                 </>
               ) : (
-                /* VOLUNTEER */
                 <>
                   <div style={{ fontWeight: 'bold' }}>
                     {selected.name}
@@ -156,18 +206,18 @@ function MapPage() {
                 </>
               )}
             </div>
-          </InfoWindow>
+          </OverlayView>
         )}
+
       </GoogleMap>
 
       {/* LISTS */}
       <div className={styles.lists}>
 
-        {/* NEED LIST */}
         <div className={styles.listCard}>
-          <h3>🔴 Active Needs ({needs.length})</h3>
+          <h3>🔴 Active Needs ({validNeeds.length})</h3>
 
-          {needs.map(n => (
+          {validNeeds.map(n => (
             <div
               key={n.id}
               className={styles.listItem}
@@ -189,7 +239,6 @@ function MapPage() {
           ))}
         </div>
 
-        {/* VOL LIST */}
         <div className={styles.listCard}>
           <h3>🟢 Volunteers ({volunteers.length})</h3>
 
@@ -232,6 +281,17 @@ function MapPage() {
         </div>
 
       </div>
+
+      {/* pulse animation */}
+      <style>
+        {`
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.6; }
+          70% { transform: scale(2); opacity: 0; }
+          100% { transform: scale(1); opacity: 0; }
+        }
+        `}
+      </style>
     </div>
   );
 }
