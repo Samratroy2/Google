@@ -41,14 +41,33 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [activities, setActivities] = useState([]);
 
+  // ✅ NEW
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // ✅ FIX 1: Set persistence ON APP START (NOT in login)
+  useEffect(() => {
+    setPersistence(auth, browserLocalPersistence)
+      .catch(err => console.error("Persistence error:", err));
+  }, []);
+
   // 🔐 AUTH LISTENER
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) return setUser(null);
+
+      if (!u) {
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
 
       try {
         const snap = await getDoc(doc(db, "users", u.uid));
-        if (!snap.exists()) return setUser(null);
+
+        if (!snap.exists()) {
+          setUser(null);
+          setAuthLoading(false);
+          return;
+        }
 
         const data = snap.data();
 
@@ -57,8 +76,11 @@ export function AppProvider({ children }) {
           role: data.role || "General",
           name: data.name || u.email || "User"
         });
+
       } catch (err) {
         console.error("Auth error:", err);
+      } finally {
+        setAuthLoading(false);
       }
     });
 
@@ -110,7 +132,7 @@ export function AppProvider({ children }) {
     return () => unsub();
   }, []);
 
-  // ✅ FIXED: memoized logger
+  // ✅ logger
   const logActivity = useCallback(async (action, emailOverride = null) => {
     try {
       await addDoc(collection(db, "activities"), {
@@ -143,7 +165,7 @@ export function AppProvider({ children }) {
 
   // 🔐 LOGIN
   const login = async (email, password) => {
-    await setPersistence(auth, browserLocalPersistence);
+    // ❌ REMOVED setPersistence from here
 
     const res = await signInWithEmailAndPassword(auth, email, password);
 
@@ -175,7 +197,7 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.error("Add need error:", err);
     }
-  }, [user, logActivity]); // ✅ FIXED
+  }, [user, logActivity]);
 
   const updateNeedStatus = useCallback(async (id, status) => {
     try {
@@ -184,7 +206,7 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.error("Update need error:", err);
     }
-  }, [user, logActivity]); // ✅ FIXED
+  }, [user, logActivity]);
 
   const deleteNeed = useCallback(async (id) => {
     try {
@@ -193,7 +215,7 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.error("Delete need error:", err);
     }
-  }, [user, logActivity]); // ✅ FIXED
+  }, [user, logActivity]);
 
   // 👤 UPDATE USER
   const updateUser = async (uid, data) => {
@@ -240,6 +262,8 @@ export function AppProvider({ children }) {
       deleteNeed,
 
       user,
+      authLoading, // ✅ IMPORTANT
+
       login,
       signup,
       logout,

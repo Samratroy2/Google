@@ -2,6 +2,8 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoadScript } from '@react-google-maps/api';
 
+import { useApp } from './context/AppContext'; // ✅ ADD THIS
+
 import Layout from './components/Layout/Layout';
 import Dashboard from './pages/Dashboard';
 import NeedsPage from './pages/NeedsPage';
@@ -20,6 +22,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 const LIBRARIES = ['places'];
 
 function App() {
+  const { authLoading } = useApp(); // ✅ GET LOADING STATE
+
+  // ✅ CRITICAL FIX: wait before rendering routes
+  if (authLoading) {
+    return <div style={{ textAlign: "center", marginTop: "100px" }}>
+      Loading app...
+    </div>;
+  }
+
   return (
     <LoadScript
       googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
@@ -32,7 +43,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin-verify" element={<AdminVerifyPage />} />
         <Route path="/profile" element={<ProfilePage />} />
-        
+
         {/* ✅ PROTECTED APP */}
         <Route path="/*" element={
           <Layout>
