@@ -36,8 +36,8 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
       )}
 
       <div className={styles.bottom}>
-        <div className={styles.info}>
-          <span>By <strong>{need.postedBy || 'You'}</strong></span>
+        <div className={styles.info}>Posted by -{" "}
+          {typeof need.postedBy === 'object'? need.postedBy.uid : need.postedBy}
           <span className={styles.dot}>·</span>
           <span>Qty: <strong>{need.qty || 0} {need.unit || ''}</strong></span>
           <span className={styles.dot}>·</span>
@@ -60,11 +60,6 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
             </Button>
           )}
 
-          {onDelete && (
-            <Button size="sm" variant="ghost" onClick={() => onDelete(need.id)}>
-              🗑
-            </Button>
-          )}
         </div>
       </div>
     </div>

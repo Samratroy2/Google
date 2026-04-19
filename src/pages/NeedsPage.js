@@ -14,79 +14,139 @@ const TYPES     = ['All', 'Food', 'Medical', 'Shelter', 'Water', 'Other'];
 const URGENCIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
 
 function NeedsPage() {
-  const { needs, users, updateNeedStatus, deleteNeed } = useApp();
+  const { needs, users, currentUser, updateNeedStatus, deleteNeed } = useApp();
   const navigate = useNavigate();
-  const { filters, setFilter, filtered } = useFilters(needs, ['title', 'location', 'postedBy']);
+  const { filters, setFilter, filtered } = useFilters(needs, ['title', 'location']);
 
-  const [matchState, setMatchState] = useState({ open: false, need: null, matches: [] });
+  const [matchState, setMatchState] = useState({
+    open: false,
+    need: null,
+    matches: []
+  });
 
+  // 🤖 AI match
   const handleMatch = (need) => {
     const matches = aiMatchVolunteers(need, users);
     setMatchState({ open: true, need, matches });
   };
 
+  // ✅ Assign volunteer
   const handleAssign = (volunteer) => {
     updateNeedStatus(matchState.need.id, 'Assigned');
     toast.success(`✅ ${volunteer.name} assigned to "${matchState.need.title}"`);
   };
 
+  // 🔄 Status change
   const handleStatusChange = (id, status) => {
     updateNeedStatus(id, status);
     toast.success(`Status updated to ${status}`);
   };
 
+  // 🗑 Delete
   const handleDelete = (id) => {
-    deleteNeed(id);
-    toast.info('Need removed');
+    if (window.confirm('Delete this need?')) {
+      deleteNeed(id);
+      toast.info('Need removed');
+    }
+  };
+
+  // 🔐 Permission logic (FIXED)
+  const canDelete = (need) => {
+    const ownerId =
+      typeof need.postedBy === 'object'
+        ? need.postedBy.uid
+        : null;
+
+    return (
+      currentUser?.role === 'admin' ||
+      currentUser?.uid === ownerId
+    );
   };
 
   return (
     <div>
+      {/* HEADER */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Active Needs</h1>
           <p className={styles.sub}>{filtered.length} requests found</p>
         </div>
-        <Button onClick={() => navigate('/needs/post')}>+ Post Need</Button>
+
+        <Button onClick={() => navigate('/needs/post')}>
+          + Post Need
+        </Button>
       </div>
 
-      {/* Search + Filters */}
+      {/* 🔍 SEARCH + FILTERS */}
       <div className={styles.filters}>
         <input
           className={styles.search}
-          placeholder="🔍  Search by title, location, NGO…"
+          placeholder="🔍 Search by title or location…"
           value={filters.search}
           onChange={e => setFilter('search', e.target.value)}
         />
+
         <div className={styles.filterGroups}>
+
+          {/* STATUS */}
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Status</span>
             {STATUSES.map(s => (
-              <button key={s} className={`${styles.chip} ${filters.status === s ? styles.active : ''}`}
-                onClick={() => setFilter('status', s)}>{s}</button>
+              <button
+                key={s}
+                className={`${styles.chip} ${filters.status === s ? styles.active : ''}`}
+                onClick={() => setFilter('status', s)}
+              >
+                {s}
+              </button>
             ))}
           </div>
+
+          {/* TYPE */}
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Type</span>
             {TYPES.map(t => (
-              <button key={t} className={`${styles.chip} ${filters.type === t ? styles.active : ''}`}
-                onClick={() => setFilter('type', t)}>{t}</button>
+              <button
+                key={t}
+                className={`${styles.chip} ${filters.type === t ? styles.active : ''}`}
+                onClick={() => setFilter('type', t)}
+              >
+                {t}
+              </button>
             ))}
           </div>
+
+          {/* URGENCY */}
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Urgency</span>
             {URGENCIES.map(u => (
-              <button key={u} className={`${styles.chip} ${filters.urgency === u ? styles.active : ''}`}
-                onClick={() => setFilter('urgency', u)}>{u}</button>
+              <button
+                key={u}
+                className={`${styles.chip} ${filters.urgency === u ? styles.active : ''}`}
+                onClick={() => setFilter('urgency', u)}
+              >
+                {u}
+              </button>
             ))}
           </div>
+
         </div>
       </div>
 
+      {/* EMPTY STATE */}
       {filtered.length === 0 && (
-        <div className={styles.empty}>No needs match your filters. <button onClick={() => navigate('/needs/post')} className={styles.postLink}>Post one →</button></div>
+        <div className={styles.empty}>
+          No needs match your filters.
+          <button
+            onClick={() => navigate('/needs/post')}
+            className={styles.postLink}
+          >
+            Post one →
+          </button>
+        </div>
       )}
 
+      {/* 🧾 NEED LIST */}
       <div>
         {filtered.map(need => (
           <NeedCard
@@ -94,11 +154,12 @@ function NeedsPage() {
             need={need}
             onMatch={handleMatch}
             onStatusChange={handleStatusChange}
-            onDelete={handleDelete}
+            onDelete={canDelete(need) ? handleDelete : undefined}
           />
         ))}
       </div>
 
+      {/* 🤖 MATCH MODAL */}
       <MatchModal
         open={matchState.open}
         onClose={() => setMatchState(s => ({ ...s, open: false }))}

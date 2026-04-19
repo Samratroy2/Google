@@ -17,14 +17,18 @@ import {
   doc,
   serverTimestamp,
   setDoc,
-  getDoc
+  getDoc,
+  query,
+  orderBy
 } from "firebase/firestore";
 
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from "firebase/auth";
 
 const AppContext = createContext(null);
@@ -33,88 +37,68 @@ export function AppProvider({ children }) {
 
   const [theme, setTheme] = useState('dark');
   const [needs, setNeeds] = useState([]);
-  const [volunteers, setVolunteers] = useState([]);
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null);
-
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: '🔔 New need posted', time: '2m ago', read: false }
-  ]);
-
-  const [tick, setTick] = useState(0);
-
-  // ✅ FIXED: activities INSIDE component
   const [activities, setActivities] = useState([]);
 
   // 🔐 AUTH LISTENER
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) {
-        setUser(null);
-        return;
+      if (!u) return setUser(null);
+
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        if (!snap.exists()) return setUser(null);
+
+        const data = snap.data();
+
+        setUser({
+          ...u,
+          role: data.role || "General",
+          name: data.name || u.email || "User"
+        });
+      } catch (err) {
+        console.error("Auth error:", err);
       }
-
-      const snap = await getDoc(doc(db, "users", u.uid));
-
-      if (!snap.exists()) {
-        setUser(null);
-        return;
-      }
-
-      const data = snap.data();
-
-      setUser({
-        ...u,
-        role: data.role || "General"
-      });
     });
 
     return () => unsub();
-  }, []);
-
-  // ⏱️ TIME TICK
-  useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 10000);
-    return () => clearInterval(interval);
   }, []);
 
   // 🔄 NEEDS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "needs"), (snap) => {
-      setNeeds(snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timeAgo: getTimeAgo(doc.data().createdAt)
-      })));
+      setNeeds(
+        snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timeAgo: getTimeAgo(doc.data().createdAt)
+        }))
+      );
     });
-    return () => unsub();
-  }, [tick]);
 
-  // 🔄 VOLUNTEERS
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "volunteers"), (snap) => {
-      setVolunteers(snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })));
-    });
     return () => unsub();
   }, []);
 
   // 🔄 USERS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "users"), (snap) => {
-      setUsers(snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })));
+      setUsers(
+        snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+      );
     });
+
     return () => unsub();
   }, []);
 
-  // ✅ FIXED: Activity listener INSIDE
+  // 🔄 ACTIVITIES
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "activities"), (snap) => {
+    const q = query(collection(db, "activities"), orderBy("createdAt", "desc"));
+
+    const unsub = onSnapshot(q, (snap) => {
       setActivities(
         snap.docs.map(doc => ({
           id: doc.id,
@@ -126,24 +110,30 @@ export function AppProvider({ children }) {
     return () => unsub();
   }, []);
 
-  // 🎨 THEME
-  const toggleTheme = () => {
-    setTheme(t => {
-      const next = t === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      return next;
-    });
-  };
+  // ✅ FIXED: memoized logger
+  const logActivity = useCallback(async (action, emailOverride = null) => {
+    try {
+      await addDoc(collection(db, "activities"), {
+        email: emailOverride || user?.email || "System",
+        name: user?.name || "System",
+        action,
+        createdAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Activity log error:", err);
+    }
+  }, [user]);
 
   // 🔐 SIGNUP
-  const signup = async (email, password, role = "General") => {
+  const signup = async (email, password, role = "General", name = "") => {
     const res = await createUserWithEmailAndPassword(auth, email, password);
 
     await setDoc(doc(db, "users", res.user.uid), {
       uid: res.user.uid,
       email,
+      name,
       role,
-      status: "approved",
+      status: role === "Volunteer" ? "pending" : "approved",
       proofUrl: "",
       createdAt: serverTimestamp()
     });
@@ -153,124 +143,115 @@ export function AppProvider({ children }) {
 
   // 🔐 LOGIN
   const login = async (email, password) => {
+    await setPersistence(auth, browserLocalPersistence);
+
     const res = await signInWithEmailAndPassword(auth, email, password);
 
-    const snap = await getDoc(doc(db, "users", res.user.uid));
-
-    if (!snap.exists()) {
-      await signOut(auth);
-      throw new Error("User not found");
-    }
-
-    // ✅ LOG LOGIN ACTIVITY
-    await logActivity(email, "Login");
+    await logActivity("🔐 Login", email);
 
     return res.user;
   };
 
   // 🔓 LOGOUT
   const logout = async () => {
-    if (user?.email) {
-      await logActivity(user.email, "Logout");
-    }
+    await logActivity("🚪 Logout", user?.email);
     await signOut(auth);
-  };
-
-  // ✏️ UPDATE USER
-  const updateUser = async (uid, data) => {
-    await updateDoc(doc(db, "users", uid), data);
-  };
-
-  const approveUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), {
-      status: "approved"
-    });
-  };
-
-  const blockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), {
-      status: "blocked"
-    });
-  };
-
-  const unblockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), {
-      status: "approved"
-    });
-  };
-
-  const deleteUserAccount = async (uid) => {
-    await updateDoc(doc(db, "users", uid), {
-      status: "deleted"
-    });
   };
 
   // ➕ NEED
   const addNeed = useCallback(async (need) => {
-    await addDoc(collection(db, "needs"), {
-      ...need,
-      status: 'Pending',
-      createdAt: serverTimestamp(),
-      postedBy: user?.email || "Anonymous"
-    });
-  }, [user]);
+    try {
+      await addDoc(collection(db, "needs"), {
+        ...need,
+        status: 'Pending',
+        createdAt: serverTimestamp(),
+        postedBy: {
+          name: user?.name || "User",
+          uid: user?.uid
+        }
+      });
+
+      await logActivity("📦 Created a need");
+    } catch (err) {
+      console.error("Add need error:", err);
+    }
+  }, [user, logActivity]); // ✅ FIXED
 
   const updateNeedStatus = useCallback(async (id, status) => {
-    await updateDoc(doc(db, "needs", id), { status });
-  }, []);
+    try {
+      await updateDoc(doc(db, "needs", id), { status });
+      await logActivity(`🔄 Updated need to ${status}`);
+    } catch (err) {
+      console.error("Update need error:", err);
+    }
+  }, [user, logActivity]); // ✅ FIXED
 
   const deleteNeed = useCallback(async (id) => {
-    await deleteDoc(doc(db, "needs", id));
-  }, []);
+    try {
+      await deleteDoc(doc(db, "needs", id));
+      await logActivity("🗑 Deleted a need");
+    } catch (err) {
+      console.error("Delete need error:", err);
+    }
+  }, [user, logActivity]); // ✅ FIXED
 
-  // ➕ VOLUNTEER
-  const addVolunteer = useCallback(async (v) => {
-    await addDoc(collection(db, "volunteers"), {
-      ...v,
-      tasksCompleted: 0,
-      rating: 5,
-      joinedDate: new Date().toISOString().split('T')[0]
-    });
-  }, []);
+  // 👤 UPDATE USER
+  const updateUser = async (uid, data) => {
+    try {
+      await updateDoc(doc(db, "users", uid), data);
+      await logActivity("✏️ Updated profile");
+    } catch (err) {
+      console.error("Update user error:", err);
+      throw err;
+    }
+  };
 
-  const deleteVolunteer = useCallback(async (id) => {
-    await deleteDoc(doc(db, "volunteers", id));
-  }, []);
+  // 👤 USER ACTIONS
+  const approveUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), { status: "approved" });
+    await logActivity("✅ Approved a user");
+  };
 
-  // 🔔 NOTIFICATIONS
-  const markAllRead = () =>
-    setNotifications(n => n.map(x => ({ ...x, read: true })));
+  const blockUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), { status: "blocked" });
+    await logActivity("🚫 Blocked a user");
+  };
 
-  // ✅ FIXED: INSIDE FUNCTION
-  const logActivity = async (email, action, proofUrl = "") => {
-    await addDoc(collection(db, "activities"), {
-      email,
-      action,
-      proofUrl,
-      createdAt: serverTimestamp()
-    });
+  const unblockUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), { status: "approved" });
+    await logActivity("🔓 Unblocked a user");
+  };
+
+  const deleteUserAccount = async (uid) => {
+    await updateDoc(doc(db, "users", uid), { status: "deleted" });
+    await logActivity("❌ Deleted a user");
   };
 
   return (
     <AppContext.Provider value={{
-      theme, toggleTheme,
+      theme, setTheme,
 
-      needs, addNeed, updateNeedStatus, deleteNeed,
-      volunteers, addVolunteer, deleteVolunteer,
+      needs: needs || [],
+      users: users || [],
+      activities: activities || [],
 
-      user, login, signup, logout,
+      addNeed,
+      updateNeedStatus,
+      deleteNeed,
 
-      users,
+      user,
+      login,
+      signup,
+      logout,
+
       updateUser,
+
       approveUser,
       deleteUserAccount,
       blockUser,
       unblockUser,
 
-      notifications, markAllRead,
-
-      activities,       // ✅ FIXED
-      logActivity       // ✅ FIXED
+      logActivity
     }}>
       {children}
     </AppContext.Provider>
