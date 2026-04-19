@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Modal from '../UI/Modal';
 import Badge from '../UI/Badge';
 import Button from '../UI/Button';
@@ -7,32 +7,67 @@ import { formatScore, scoreColor } from '../../utils/helpers';
 import styles from './MatchModal.module.css';
 
 function MatchModal({ open, onClose, need, matches, onAssign }) {
+  const [selected, setSelected] = useState(null);
+
   if (!need) return null;
+
   return (
     <Modal open={open} onClose={onClose} title="🤖 AI Match Results" width={520}>
+
       {/* Need summary */}
       <div className={styles.needBox}>
         <span className={styles.needIcon}>{TYPE_ICONS[need.type]}</span>
         <div>
           <div className={styles.needTitle}>{need.title}</div>
-          <div className={styles.needMeta}>{need.location} · <Badge text={need.urgency} color={URGENCY_COLORS[need.urgency]} size="sm" /></div>
+          <div className={styles.needMeta}>
+            {need.location} · 
+            <Badge text={need.urgency} color={URGENCY_COLORS[need.urgency]} size="sm" />
+          </div>
         </div>
       </div>
 
-      <div className={styles.sectionLabel}>Best volunteer matches (AI ranked):</div>
+      <div className={styles.sectionLabel}>
+        Best volunteer matches (AI ranked):
+      </div>
 
       {matches.length === 0 && (
-        <div className={styles.empty}>No available volunteers found. Try registering more volunteers.</div>
+        <div className={styles.empty}>
+          No available volunteers found.
+        </div>
       )}
 
       {matches.slice(0, 4).map((v, i) => (
-        <div key={v.id} className={`${styles.volRow} ${i === 0 ? styles.top : ''}`}>
+        <div
+          key={v.id}
+          onClick={() => setSelected(v)} // ✅ selectable
+          className={`
+            ${styles.volRow} 
+            ${i === 0 ? styles.top : ''} 
+            ${selected?.id === v.id ? styles.selected : ''}
+          `}
+        >
           {i === 0 && <div className={styles.bestTag}>⭐ BEST MATCH</div>}
-          <div className={styles.avatar} style={{ background: SKILL_COLORS[v.skill] + '33', color: SKILL_COLORS[v.skill] }}>
+
+          <div
+            className={styles.avatar}
+            style={{
+              background: SKILL_COLORS[v.skill] + '33',
+              color: SKILL_COLORS[v.skill]
+            }}
+          >
             {v.avatar}
           </div>
+
           <div className={styles.volInfo}>
             <div className={styles.volName}>{v.name}</div>
+
+            {/* ✅ NEW: username + phone */}
+            <div className={styles.volMeta}>
+              <span>@{v.username || 'unknown'}</span>
+              <span>·</span>
+              <span>{v.phone || 'No phone'}</span>
+            </div>
+
             <div className={styles.volMeta}>
               <span>{v.skill}</span>
               <span>·</span>
@@ -41,21 +76,40 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
               <span>{v.tasksCompleted} tasks done</span>
             </div>
           </div>
+
           <div className={styles.scoreBox}>
-            <div className={styles.score} style={{ color: scoreColor(v.matchScore) }}>
+            <div
+              className={styles.score}
+              style={{ color: scoreColor(v.matchScore) }}
+            >
               {formatScore(v.matchScore)}
             </div>
+
             <div className={styles.scoreBar}>
-              <div className={styles.scoreFill} style={{ width: formatScore(v.matchScore), background: scoreColor(v.matchScore) }} />
+              <div
+                className={styles.scoreFill}
+                style={{
+                  width: formatScore(v.matchScore),
+                  background: scoreColor(v.matchScore)
+                }}
+              />
             </div>
           </div>
         </div>
       ))}
 
+      {/* ✅ ACTION BUTTON */}
       {matches.length > 0 && (
         <div className={styles.footer}>
-          <Button fullWidth onClick={() => { onAssign && onAssign(matches[0]); onClose(); }}>
-            ✅ Assign Best Match: {matches[0]?.name}
+          <Button
+            fullWidth
+            onClick={() => {
+              const chosen = selected || matches[0]; // ✅ fallback best
+              onAssign && onAssign(chosen);
+              onClose();
+            }}
+          >
+            ✅ Assign {selected?.name || matches[0]?.name}
           </Button>
         </div>
       )}

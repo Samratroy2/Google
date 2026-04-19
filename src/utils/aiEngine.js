@@ -84,7 +84,12 @@ export function aiMatchVolunteers(need, users) {
       };
     })
     .filter(Boolean)
-    .sort((a, b) => a.distance - b.distance);
+    .sort((a, b) => {
+      if (b.matchScore !== a.matchScore) {
+        return b.matchScore - a.matchScore; // primary: score
+      }
+      return a.distance - b.distance; // secondary: distance
+    });
 }
 
 
