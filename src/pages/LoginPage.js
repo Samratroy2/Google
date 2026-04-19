@@ -6,8 +6,11 @@ import Input from '../components/UI/Input';
 import { toast } from 'react-toastify';
 import styles from './PostNeedPage.module.css';
 
+// ✅ ADD
+import { auth } from "../firebase";
+
 function LoginPage() {
-  const { login, users } = useApp(); // ❌ removed logActivity
+  const { login, users } = useApp();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -24,6 +27,22 @@ function LoginPage() {
       setLoading(true);
 
       const res = await login(email, password);
+
+      // ✅ ADD EMAIL VERIFY CHECK
+      const firebaseUser = auth.currentUser;
+
+      if (firebaseUser) {
+        await firebaseUser.reload(); // refresh status
+
+        if (!firebaseUser.emailVerified) {
+          toast.error("📧 Please verify your email before login");
+
+          // optional: resend automatically
+          // await sendEmailVerification(firebaseUser);
+
+          return;
+        }
+      }
 
       const dbUser = users.find(u => u.uid === res.uid);
 

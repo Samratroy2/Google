@@ -6,8 +6,12 @@ import Input from '../components/UI/Input';
 import Select from '../components/UI/Select';
 import styles from './PostNeedPage.module.css';
 
+// ✅ ADD
+import { sendEmailVerification } from "firebase/auth";
+import { auth } from "../firebase";
+
 const ROLES = [
-  { value: '', label: 'Select Role' }, // ✅ placeholder
+  { value: '', label: 'Select Role' },
   { value: 'Volunteer', label: 'Volunteer' },
   { value: 'NGO', label: 'NGO' }
 ];
@@ -18,7 +22,7 @@ function RegisterPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState(''); // ✅ controlled
+  const [role, setRole] = useState('');
 
   const handleRegister = async () => {
     if (!email || !password) {
@@ -30,9 +34,16 @@ function RegisterPage() {
     }
 
     try {
-      console.log("Selected role:", role); // 🔥 debug
+      console.log("Selected role:", role);
 
       await signup(email, password, role);
+
+      // ✅ ADD EMAIL VERIFICATION
+      const user = auth.currentUser;
+      if (user && !user.emailVerified) {
+        await sendEmailVerification(user);
+        alert("📧 Verification email sent. Please verify before login.");
+      }
 
       alert("✅ Registered successfully");
       navigate('/login');
