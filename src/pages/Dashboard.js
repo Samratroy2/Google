@@ -1,9 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import StatCard from '../components/UI/StatCard';
 import Badge from '../components/UI/Badge';
-import Button from '../components/UI/Button';
 import {
   STATUS_COLORS,
   TYPE_ICONS
@@ -19,7 +17,6 @@ const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#3b82f6'];
 function Dashboard() {
 
   const { needs = [], users = [] } = useApp();
-  const navigate = useNavigate();
 
   const volunteers = users.filter(u => u.role === "Volunteer");
 
@@ -54,9 +51,6 @@ function Dashboard() {
           <h1 className={styles.title}>Dashboard</h1>
           <p className={styles.sub}>Real-time overview of resource allocation</p>
         </div>
-        <Button onClick={() => navigate('/needs/post')}>
-          + Post New Need
-        </Button>
       </div>
 
       {/* Stat Cards */}

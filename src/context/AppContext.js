@@ -44,7 +44,40 @@ export function AppProvider({ children }) {
   // ✅ NEW
   const [authLoading, setAuthLoading] = useState(true);
 
-  // ✅ FIX 1: Set persistence ON APP START (NOT in login)
+  // ✅ NEW: notifications
+  const [notifications, setNotifications] = useState([]);
+
+  // ✅ THEME TOGGLE
+  const toggleTheme = () => {
+    setTheme(prev => prev === "dark" ? "light" : "dark");
+  };
+
+  // ✅ APPLY THEME TO DOM
+  useEffect(() => {
+    document.body.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  // 🔔 NOTIFICATION SYSTEM
+  const addNotification = useCallback((text) => {
+    const newNotif = {
+      id: Date.now(),
+      text,
+      time: new Date().toLocaleTimeString(),
+      read: false
+    };
+
+    setNotifications(prev => [newNotif, ...prev]);
+  }, []);
+
+  const markAllRead = useCallback(() => {
+    setNotifications(prev =>
+      prev.map(n => ({ ...n, read: true }))
+    );
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // ✅ FIX 1: Set persistence ON APP START
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence)
       .catch(err => console.error("Persistence error:", err));
@@ -165,12 +198,8 @@ export function AppProvider({ children }) {
 
   // 🔐 LOGIN
   const login = async (email, password) => {
-    // ❌ REMOVED setPersistence from here
-
     const res = await signInWithEmailAndPassword(auth, email, password);
-
     await logActivity("🔐 Login", email);
-
     return res.user;
   };
 
@@ -193,11 +222,14 @@ export function AppProvider({ children }) {
         }
       });
 
+      // ✅ ADD NOTIFICATION
+      addNotification("📢 New need posted");
+
       await logActivity("📦 Created a need");
     } catch (err) {
       console.error("Add need error:", err);
     }
-  }, [user, logActivity]);
+  }, [user, logActivity, addNotification]);
 
   const updateNeedStatus = useCallback(async (id, status) => {
     try {
@@ -206,7 +238,7 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.error("Update need error:", err);
     }
-  }, [user, logActivity]);
+  }, [logActivity]);
 
   const deleteNeed = useCallback(async (id) => {
     try {
@@ -215,7 +247,7 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.error("Delete need error:", err);
     }
-  }, [user, logActivity]);
+  }, [logActivity]);
 
   // 👤 UPDATE USER
   const updateUser = async (uid, data) => {
@@ -251,18 +283,24 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      theme, setTheme,
+      theme,
+      setTheme,
+      toggleTheme, // ✅
 
       needs: needs || [],
       users: users || [],
       activities: activities || [],
+
+      notifications,   // ✅
+      markAllRead,     // ✅
+      unreadCount,     // ✅
 
       addNeed,
       updateNeedStatus,
       deleteNeed,
 
       user,
-      authLoading, // ✅ IMPORTANT
+      authLoading,
 
       login,
       signup,

@@ -15,6 +15,10 @@ function Topbar() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
+  // ✅ SAFE FALLBACKS (no logic change)
+  const safeNotifications = notifications || [];
+  const safeUnread = unreadCount || 0;
+
   useEffect(() => {
     function handler(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
@@ -39,12 +43,16 @@ function Topbar() {
             className={styles.iconBtn}
             onClick={() => {
               setOpen(o => !o);
-              if (!open) markAllRead();
+
+              // ✅ SAFE CALL (fix crash)
+              if (!open && typeof markAllRead === "function") {
+                markAllRead();
+              }
             }}
           >
             🔔
-            {unreadCount > 0 && (
-              <span className={styles.badge}>{unreadCount}</span>
+            {safeUnread > 0 && (
+              <span className={styles.badge}>{safeUnread}</span>
             )}
           </button>
 
@@ -52,11 +60,11 @@ function Topbar() {
             <div className={styles.dropdown}>
               <div className={styles.dropHead}>Notifications</div>
 
-              {notifications.length === 0 && (
+              {safeNotifications.length === 0 && (
                 <div className={styles.empty}>No notifications</div>
               )}
 
-              {notifications.map(n => (
+              {safeNotifications.map(n => (
                 <div
                   key={n.id}
                   className={`${styles.notifItem} ${!n.read ? styles.unread : ''}`}
