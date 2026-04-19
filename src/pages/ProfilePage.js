@@ -5,6 +5,10 @@ import Input from '../components/UI/Input';
 import Select from '../components/UI/Select';
 import { toast } from 'react-toastify';
 import { Autocomplete } from "@react-google-maps/api";
+import { sendEmailVerification } from "firebase/auth";
+
+// ✅ ADD THIS
+import { auth } from "../firebase";
 
 function ProfilePage() {
   const { user, users, updateUser } = useApp();
@@ -27,7 +31,9 @@ function ProfilePage() {
     proofUrl: ''
   });
 
-  // 📍 Auto-detect location (fallback)
+  // ✅ ADD THIS (real firebase user)
+  const firebaseUser = auth.currentUser;
+
   const detectCurrentLocation = () => {
     if (!navigator.geolocation) return;
 
@@ -35,10 +41,7 @@ function ProfilePage() {
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-
         setCoords({ lat, lng });
-
-        console.log("📍 Auto location set:", lat, lng);
       },
       () => {
         console.warn("Location permission denied");
@@ -46,7 +49,6 @@ function ProfilePage() {
     );
   };
 
-  // 🔥 LOAD DATA
   useEffect(() => {
     if (current) {
       setForm({
@@ -64,21 +66,48 @@ function ProfilePage() {
         proofUrl: current.proofUrl || ''
       });
 
-      // ✅ preload coords OR fallback
       if (current.lat && current.lng) {
         setCoords({
           lat: current.lat,
           lng: current.lng
         });
       } else {
-        detectCurrentLocation(); // fallback
+        detectCurrentLocation();
       }
     }
   }, [current]);
 
+  // ✅ ADD THIS (safe reload)
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    const refresh = async () => {
+      try {
+        await firebaseUser.reload();
+      } catch {}
+    };
+
+    refresh();
+  }, [firebaseUser]);
+
+  // ✅ OPTIONAL auto-check verification
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    const interval = setInterval(async () => {
+      await firebaseUser.reload();
+
+      if (firebaseUser.emailVerified) {
+        toast.success("✅ Email verified!");
+        clearInterval(interval);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [firebaseUser]);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ✅ GOOGLE PLACE SELECT
   const handlePlaceSelect = () => {
     const place = autoRef.current.getPlace();
 
@@ -98,7 +127,6 @@ function ProfilePage() {
     }));
   };
 
-  // 💾 SAVE
   const handleSave = async () => {
     if (!form.username.trim()) {
       toast.error("⚠️ Username required");
@@ -124,21 +152,23 @@ function ProfilePage() {
         role: form.role,
         skill: form.skill,
         location: form.location,
-
-        lat: coords.lat,   // ✅ FIXED
-        lng: coords.lng,   // ✅ FIXED
-
+        lat: coords.lat,
+        lng: coords.lng,
         phone: form.phone,
         bio: form.bio,
         available: form.available,
         proofUrl: form.proofUrl,
-
         subSkills: form.subSkills
           ? form.subSkills.split(',').map(s => s.trim())
           : [],
-
         status: isAdmin ? "approved" : "pending"
       });
+
+      // ✅ EMAIL VERIFY (fixed, no logic change)
+      if (firebaseUser && !firebaseUser.emailVerified) {
+        await sendEmailVerification(firebaseUser);
+        toast.info("📧 Verification email sent. Check inbox.");
+      }
 
       toast.success(
         isAdmin
@@ -164,19 +194,20 @@ function ProfilePage() {
       boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
     }}>
 
-      {/* HEADER */}
-      <div style={{ marginBottom: 20 }}>
-        <h2>👤 Edit Profile</h2>
-        <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-          Update your details
-        </p>
+      <h2>👤 Edit Profile</h2>
 
-        {current.role === "Admin" && (
-          <div style={{ color: '#22c55e', fontSize: 12 }}>
-            ⚡ Admin changes apply instantly
-          </div>
-        )}
-      </div>
+      {/* ✅ STATUS (fixed source only) */}
+      {!firebaseUser?.emailVerified && (
+        <div style={{ color: '#f59e0b', fontSize: 12 }}>
+          ⚠️ Email not verified
+        </div>
+      )}
+
+      {firebaseUser?.emailVerified && (
+        <div style={{ color: '#22c55e', fontSize: 12 }}>
+          ✅ Email verified
+        </div>
+      )}
 
       <Input label="User ID (UID)" value={current.uid} disabled />
 
@@ -210,7 +241,6 @@ function ProfilePage() {
         ]}
       />
 
-      {/* ✅ GOOGLE LOCATION */}
       <Autocomplete
         onLoad={(ref) => (autoRef.current = ref)}
         onPlaceChanged={handlePlaceSelect}
@@ -220,7 +250,7 @@ function ProfilePage() {
           value={form.location}
           onChange={e => {
             set('location', e.target.value);
-            setCoords({ lat: null, lng: null }); // force correct selection
+            setCoords({ lat: null, lng: null });
           }}
         />
       </Autocomplete>
@@ -260,12 +290,24 @@ function ProfilePage() {
         onChange={e => set('proofUrl', e.target.value)}
       />
 
-      <div style={{ marginTop: 20 }}>
-        <Button onClick={handleSave} style={{ width: '100%' }}>
-          💾 Save Changes
+      {/* ✅ RESEND */}
+      {!firebaseUser?.emailVerified && (
+        <Button
+          onClick={async () => {
+            if (firebaseUser) {
+              await sendEmailVerification(firebaseUser);
+              toast.success("📧 Verification email sent again!");
+            }
+          }}
+          style={{ marginTop: 10 }}
+        >
+          Resend Verification Email
         </Button>
-      </div>
+      )}
 
+      <Button onClick={handleSave} style={{ width: '100%', marginTop: 20 }}>
+        💾 Save Changes
+      </Button>
     </div>
   );
 }
