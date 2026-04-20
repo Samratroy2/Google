@@ -14,7 +14,18 @@ const TYPES     = ['All', 'Food', 'Medical', 'Shelter', 'Water', 'Other'];
 const URGENCIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
 
 function NeedsPage() {
-  const { needs, users, currentUser, updateNeedStatus, deleteNeed } = useApp();
+
+  // ✅ ONLY ADD THESE (no removal)
+  const { 
+    needs, 
+    users, 
+    currentUser, 
+    updateNeedStatus, 
+    deleteNeed,
+    assignVolunteer,
+    completeTask
+  } = useApp();
+
   const navigate = useNavigate();
   const { filters, setFilter, filtered } = useFilters(needs, ['title', 'location']);
 
@@ -24,25 +35,57 @@ function NeedsPage() {
     matches: []
   });
 
-  // 🤖 AI match
+  // 🤖 AI match (prevent busy users)
   const handleMatch = (need) => {
-    const matches = aiMatchVolunteers(need, users);
+    const availableUsers = users.filter(u => u.available !== false); // ✅ safe filter
+    const matches = aiMatchVolunteers(need, availableUsers);
     setMatchState({ open: true, need, matches });
   };
 
-  // ✅ Assign volunteer
+  // ✅ Assign volunteer (UPDATED)
   const handleAssign = (volunteer) => {
-    updateNeedStatus(matchState.need.id, 'Assigned');
+
+    // ❗ prevent assigning busy volunteer
+    if (volunteer.available === false) {
+      toast.error("Volunteer is busy");
+      return;
+    }
+
+    // ✅ NEW LOGIC
+    if (assignVolunteer) {
+      assignVolunteer(matchState.need.id, volunteer);
+    } else {
+      updateNeedStatus(matchState.need.id, 'Assigned');
+    }
+
     toast.success(`✅ ${volunteer.name} assigned to "${matchState.need.title}"`);
   };
 
-  // 🔄 Status change
+  // 🔄 Status change (UPDATED ONLY FOR COMPLETE)
   const handleStatusChange = (id, status) => {
+
+    // ✅ intercept completion
+    if (status === "Completed" && completeTask) {
+      const need = needs.find(n => n.id === id);
+
+      const rating = Number(prompt("Rate volunteer (1-5):"));
+
+      if (!rating || rating < 1 || rating > 5) {
+        toast.error("Invalid rating");
+        return;
+      }
+
+      completeTask(need, rating);
+      toast.success("Task completed & rated ⭐");
+      return;
+    }
+
+    // 🔁 fallback (UNCHANGED)
     updateNeedStatus(id, status);
     toast.success(`Status updated to ${status}`);
   };
 
-  // 🗑 Delete
+  // 🗑 Delete (UNCHANGED)
   const handleDelete = (id) => {
     if (window.confirm('Delete this need?')) {
       deleteNeed(id);
@@ -50,7 +93,7 @@ function NeedsPage() {
     }
   };
 
-  // 🔐 Permission logic (FIXED)
+  // 🔐 Permission logic (UNCHANGED)
   const canDelete = (need) => {
     const ownerId =
       typeof need.postedBy === 'object'

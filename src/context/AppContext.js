@@ -40,24 +40,17 @@ export function AppProvider({ children }) {
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null);
   const [activities, setActivities] = useState([]);
-
-  // ✅ NEW
   const [authLoading, setAuthLoading] = useState(true);
-
-  // ✅ NEW: notifications
   const [notifications, setNotifications] = useState([]);
 
-  // ✅ THEME TOGGLE
   const toggleTheme = () => {
     setTheme(prev => prev === "dark" ? "light" : "dark");
   };
 
-  // ✅ APPLY THEME TO DOM
   useEffect(() => {
     document.body.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // 🔔 NOTIFICATION SYSTEM
   const addNotification = useCallback((text) => {
     const newNotif = {
       id: Date.now(),
@@ -65,7 +58,6 @@ export function AppProvider({ children }) {
       time: new Date().toLocaleTimeString(),
       read: false
     };
-
     setNotifications(prev => [newNotif, ...prev]);
   }, []);
 
@@ -77,16 +69,13 @@ export function AppProvider({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // ✅ FIX 1: Set persistence ON APP START
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence)
       .catch(err => console.error("Persistence error:", err));
   }, []);
 
-  // 🔐 AUTH LISTENER
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-
       if (!u) {
         setUser(null);
         setAuthLoading(false);
@@ -95,7 +84,6 @@ export function AppProvider({ children }) {
 
       try {
         const snap = await getDoc(doc(db, "users", u.uid));
-
         if (!snap.exists()) {
           setUser(null);
           setAuthLoading(false);
@@ -120,7 +108,6 @@ export function AppProvider({ children }) {
     return () => unsub();
   }, []);
 
-  // 🔄 NEEDS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "needs"), (snap) => {
       setNeeds(
@@ -131,11 +118,9 @@ export function AppProvider({ children }) {
         }))
       );
     });
-
     return () => unsub();
   }, []);
 
-  // 🔄 USERS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "users"), (snap) => {
       setUsers(
@@ -145,14 +130,11 @@ export function AppProvider({ children }) {
         }))
       );
     });
-
     return () => unsub();
   }, []);
 
-  // 🔄 ACTIVITIES
   useEffect(() => {
     const q = query(collection(db, "activities"), orderBy("createdAt", "desc"));
-
     const unsub = onSnapshot(q, (snap) => {
       setActivities(
         snap.docs.map(doc => ({
@@ -161,11 +143,9 @@ export function AppProvider({ children }) {
         }))
       );
     });
-
     return () => unsub();
   }, []);
 
-  // ✅ logger
   const logActivity = useCallback(async (action, emailOverride = null) => {
     try {
       await addDoc(collection(db, "activities"), {
@@ -179,7 +159,7 @@ export function AppProvider({ children }) {
     }
   }, [user]);
 
-  // 🔐 SIGNUP
+  // 🔐 AUTH
   const signup = async (email, password, role = "General", name = "") => {
     const res = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -196,14 +176,12 @@ export function AppProvider({ children }) {
     return res.user;
   };
 
-  // 🔐 LOGIN
   const login = async (email, password) => {
     const res = await signInWithEmailAndPassword(auth, email, password);
     await logActivity("🔐 Login", email);
     return res.user;
   };
 
-  // 🔓 LOGOUT
   const logout = async () => {
     await logActivity("🚪 Logout", user?.email);
     await signOut(auth);
@@ -222,9 +200,7 @@ export function AppProvider({ children }) {
         }
       });
 
-      // ✅ ADD NOTIFICATION
       addNotification("📢 New need posted");
-
       await logActivity("📦 Created a need");
     } catch (err) {
       console.error("Add need error:", err);
@@ -249,18 +225,57 @@ export function AppProvider({ children }) {
     }
   }, [logActivity]);
 
-  // 👤 UPDATE USER
-  const updateUser = async (uid, data) => {
-    try {
-      await updateDoc(doc(db, "users", uid), data);
-      await logActivity("✏️ Updated profile");
-    } catch (err) {
-      console.error("Update user error:", err);
-      throw err;
-    }
-  };
+  // ✅ ASSIGN
+  const assignVolunteer = useCallback(async (needId, volunteer) => {
+    await updateDoc(doc(db, "needs", needId), {
+      status: "Assigned",
+      assignedTo: {
+        uid: volunteer.uid,
+        name: volunteer.name || volunteer.email || "Volunteer"
+      }
+    });
+
+    await updateDoc(doc(db, "users", volunteer.uid), {
+      available: false
+    });
+
+    await logActivity(`👷 Assigned ${volunteer.name}`);
+  }, [logActivity]);
+
+  // ✅ COMPLETE
+  const completeTask = useCallback(async (need, rating) => {
+    const volunteerId = need.assignedTo?.uid;
+    if (!volunteerId) return;
+
+    await updateDoc(doc(db, "needs", need.id), {
+      status: "Completed",
+      rating
+    });
+
+    const userRef = doc(db, "users", volunteerId);
+    const snap = await getDoc(userRef);
+    const data = snap.data();
+
+    const total = (data.totalRatings || 0) + 1;
+    const avg =
+      ((data.rating || 0) * (data.totalRatings || 0) + rating) / total;
+
+    await updateDoc(userRef, {
+      available: true,
+      tasksCompleted: (data.tasksCompleted || 0) + 1,
+      rating: avg,
+      totalRatings: total
+    });
+
+    await logActivity("✅ Task completed");
+  }, [logActivity]);
 
   // 👤 USER ACTIONS
+  const updateUser = async (uid, data) => {
+    await updateDoc(doc(db, "users", uid), data);
+    await logActivity("✏️ Updated profile");
+  };
+
   const approveUser = async (uid) => {
     await updateDoc(doc(db, "users", uid), { status: "approved" });
     await logActivity("✅ Approved a user");
@@ -285,19 +300,22 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       theme,
       setTheme,
-      toggleTheme, // ✅
+      toggleTheme,
 
-      needs: needs || [],
-      users: users || [],
-      activities: activities || [],
+      needs,
+      users,
+      activities,
 
-      notifications,   // ✅
-      markAllRead,     // ✅
-      unreadCount,     // ✅
+      notifications,
+      markAllRead,
+      unreadCount,
 
       addNeed,
       updateNeedStatus,
       deleteNeed,
+
+      assignVolunteer,
+      completeTask,
 
       user,
       authLoading,
@@ -307,7 +325,6 @@ export function AppProvider({ children }) {
       logout,
 
       updateUser,
-
       approveUser,
       deleteUserAccount,
       blockUser,
@@ -324,7 +341,6 @@ export function useApp() {
   return useContext(AppContext);
 }
 
-// ⏱️ TIME FORMAT
 function getTimeAgo(ts) {
   if (!ts) return "Just now";
 

@@ -21,19 +21,20 @@ function VolunteersPage() {
     );
   }
 
-  // 🔥 GET VOLUNTEERS
+  // 🔥 GET VOLUNTEERS (UNCHANGED)
   const volunteers = users.filter(u =>
     u.role === "Volunteer" &&
     u.status === "approved"
   );
 
-  // 🔍 SEARCH
+  // 🔍 SEARCH (UNCHANGED)
   const filtered = volunteers.filter(v =>
     v.email?.toLowerCase().includes(search.toLowerCase()) ||
     v.location?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const available = volunteers.filter(v => v.available).length;
+  // ✅ FIX: SAFE AVAILABLE COUNT (handles undefined)
+  const available = volunteers.filter(v => v.available !== false).length;
 
   return (
     <div>
@@ -68,8 +69,15 @@ function VolunteersPage() {
           key={v.uid}
           volunteer={{
             ...v,
+
+            // ✅ KEEP YOUR ORIGINAL LOGIC
             name: v.username || v.email?.split('@')[0],
-            avatar: getInitials(v.username || v.email)
+            avatar: getInitials(v.username || v.email),
+
+            // ✅ ADD SAFE DEFAULTS (IMPORTANT)
+            available: v.available !== false,
+            tasksCompleted: v.tasksCompleted || 0,
+            rating: v.rating || 0
           }}
         />
       ))}
