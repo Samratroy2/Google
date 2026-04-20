@@ -7,7 +7,7 @@ import { URGENCY_COLORS, STATUS_COLORS, TYPE_ICONS } from '../data/mockData';
 import { toast } from 'react-toastify';
 import styles from './AdminPage.module.css';
 
-const TABS = ['Overview', 'Needs', 'Volunteers', 'NGOs', 'Users', 'Activity'];
+const TABS = ['Overview', 'Needs', 'Volunteers', 'NGOs', 'Verify', 'Users', 'Activity'];
 
 function AdminPage() {
   const {
@@ -40,10 +40,13 @@ function AdminPage() {
     u => u.role === "Volunteer" && u.status === "approved"
   );
 
-  // ✅ NGOs (NEW)
+  // ✅ NGOs
   const ngos = users.filter(
     u => u.role === "NGO" && u.status === "approved"
   );
+
+  // ✅ Pending users (for Verify tab)
+  const pendingUsers = users.filter(u => u.status === 'pending');
 
   // 📊 Stats
   const total = needs.length;
@@ -55,7 +58,6 @@ function AdminPage() {
   const available = volunteers.filter(v => v.available).length;
   const rate = total ? Math.round((completed / total) * 100) : 0;
 
-  const pendingUsers = users.filter(u => u.status === 'pending');
   const activeUsers = users.filter(u => u.status !== 'deleted');
 
   // 🔥 HANDLERS
@@ -79,7 +81,7 @@ function AdminPage() {
 
     if (window.confirm("Delete this user?")) {
       await deleteUserAccount(uid);
-      toast.error("❌ User deleted");
+      toast.error("❌ User rejected");
     }
   };
 
@@ -96,8 +98,17 @@ function AdminPage() {
   const getStatusColor = (status) => {
     if (status === 'approved') return '#22c55e';
     if (status === 'blocked') return '#ef4444';
-    if (status === 'pending') return '#f97316';
     return '#64748b';
+  };
+
+  // ✅ ONLY ADDITION: Proof renderer
+  const renderProof = (url) => {
+    if (!url) return '-';
+    return (
+      <a href={url} target="_blank" rel="noreferrer">
+        View
+      </a>
+    );
   };
 
   return (
@@ -135,6 +146,54 @@ function AdminPage() {
           <StatCard icon="🙋" label="Volunteers" value={totalVols} color="#8b5cf6" />
           <StatCard icon="🟢" label="Available" value={available} color="#22c55e" />
           <StatCard icon="📈" label="Completion Rate" value={`${rate}%`} color="#f59e0b" />
+        </div>
+      )}
+
+      {/* ================= VERIFY ================= */}
+      {tab === 'Verify' && (
+        <div className={styles.tableCard}>
+          <h3 className={styles.cardTitle}>
+            Pending Verification ({pendingUsers.length})
+          </h3>
+
+          {pendingUsers.length === 0 ? (
+            <div style={{ padding: 20, opacity: 0.7 }}>
+              No pending users
+            </div>
+          ) : (
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Organization</th>
+                  <th>Proof</th> {/* added */}
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {pendingUsers.map(u => (
+                  <tr key={u.uid}>
+                    <td>{u.email}</td>
+                    <td>{u.role}</td>
+                    <td>{u.organization || '-'}</td>
+                    <td>{renderProof(u.proofUrl)}</td> {/* added */}
+
+                    <td>
+                      <Button onClick={() => handleApprove(u.uid)}>
+                        Approve
+                      </Button>
+
+                      <Button onClick={() => handleDeleteUser(u.uid)}>
+                        Reject
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -187,6 +246,7 @@ function AdminPage() {
                 <th>Email</th>
                 <th>Organization</th>
                 <th>Location</th>
+                <th>Proof</th> {/* added */}
                 <th>Status</th>
               </tr>
             </thead>
@@ -197,6 +257,7 @@ function AdminPage() {
                   <td>{n.email}</td>
                   <td>{n.organization || '-'}</td>
                   <td>{n.location || '-'}</td>
+                  <td>{renderProof(n.proofUrl)}</td> {/* added */}
                   <td>
                     <Badge
                       text={n.available ? "Active" : "Inactive"}
@@ -222,6 +283,7 @@ function AdminPage() {
               <tr>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Proof</th> {/* added */}
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -232,6 +294,7 @@ function AdminPage() {
                 <tr key={u.uid}>
                   <td>{u.email}</td>
                   <td>{u.role}</td>
+                  <td>{renderProof(u.proofUrl)}</td> {/* added */}
 
                   <td>
                     <Badge
@@ -241,12 +304,6 @@ function AdminPage() {
                   </td>
 
                   <td>
-                    {u.status === 'pending' && (
-                      <Button onClick={() => handleApprove(u.uid)}>
-                        Approve
-                      </Button>
-                    )}
-
                     {u.status === 'approved' && (
                       <Button onClick={() => handleBlockUser(u.uid)}>
                         Block

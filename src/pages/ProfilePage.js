@@ -237,7 +237,8 @@ function ProfilePage() {
           { value: "Field worker", label: "Field worker" },
           { value: "Lawyer", label: "Lawyer" },
           { value: "Nurse", label: "Nurse" },
-          { value: "Online volunteer", label: "Online volunteer" }
+          { value: "Online volunteer", label: "Online volunteer" },
+          { value: "NGO", label: "NGO" }
         ]}
       />
 
