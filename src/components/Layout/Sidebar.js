@@ -1,87 +1,109 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useApp } from '../../context/AppContext';
-import styles from './Sidebar.module.css';
+import React from "react";
+import { NavLink } from "react-router-dom"; // ❌ removed useNavigate
+import { useApp } from "../../context/AppContext";
+import styles from "./Sidebar.module.css";
 
 function Sidebar() {
-  const { needs = [], users = [], user, logout } = useApp();
-  const navigate = useNavigate();
+  const { needs = [], users = [], user } = useApp(); // ❌ removed logout
 
-  const pending = needs.filter(n => n.status === 'Pending').length;
+  // 📊 Pending needs
+  const pending = needs.filter((n) => n.status === "Pending").length;
 
-  // 🔥 VOLUNTEERS FROM USERS
+  // 🙋 Approved volunteers
   const volunteers = users.filter(
-    u => u.role === 'Volunteer' && u.status === 'approved'
+    (u) => u.role === "Volunteer" && u.status === "approved"
   );
 
-  const available = volunteers.filter(v => v.available).length;
-
-  // ✅ LOGOUT HANDLER
-  const handleLogout = async () => {
-    try {
-      await logout(); // 🔥 logs activity + signs out
-      navigate('/login');
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // ✅ Available volunteers
+  const available = volunteers.filter((v) => v.available).length;
 
   return (
     <aside className={styles.sidebar}>
       <nav className={styles.nav}>
 
-        <NavLink to="/dashboard" className={styles.link}>
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ""}`
+          }
+        >
           📊 Dashboard
         </NavLink>
 
-        <NavLink to="/needs" className={styles.link}>
+        <NavLink
+          to="/needs"
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ""}`
+          }
+        >
           📋 Needs
           {pending > 0 && <span className={styles.pill}>{pending}</span>}
         </NavLink>
 
-        <NavLink to="/volunteers" className={styles.link}>
+        <NavLink
+          to="/volunteers"
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ""}`
+          }
+        >
           🙋 Volunteers
         </NavLink>
 
-        <NavLink to="/map" className={styles.link}>
+        <NavLink
+          to="/map"
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ""}`
+          }
+        >
           🗺️ Live Map
         </NavLink>
 
-        <NavLink to="/chatbot" className={styles.link}>
+        <NavLink
+          to="/chatbot"
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ""}`
+          }
+        >
           🤖 AI Chat
         </NavLink>
 
-        <NavLink to="/profile" className={styles.link}>
+        <NavLink
+          to="/profile"
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ""}`
+          }
+        >
           👤 My Profile
         </NavLink>
 
         {/* 🔐 ADMIN */}
-        {user?.role?.toLowerCase() === 'admin' && (
-          <NavLink to="/admin" className={styles.link}>
+        {user?.role?.toLowerCase() === "admin" && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `${styles.link} ${isActive ? styles.active : ""}`
+            }
+          >
             ⚙️ Admin
           </NavLink>
         )}
-
       </nav>
 
       {/* 📊 STATS */}
       <div className={styles.stats}>
         <div className={styles.statRow}>
-          <span>Pending needs</span>
-          <span style={{ color: '#f97316' }}>{pending}</span>
+          <span className={styles.statLabel}>Pending needs</span>
+          <span className={styles.statVal} style={{ color: "#f97316" }}>
+            {pending}
+          </span>
         </div>
 
         <div className={styles.statRow}>
-          <span>Available vols</span>
-          <span style={{ color: '#22c55e' }}>{available}</span>
+          <span className={styles.statLabel}>Available vols</span>
+          <span className={styles.statVal} style={{ color: "#22c55e" }}>
+            {available}
+          </span>
         </div>
-      </div>
-
-      {/* 🔥 LOGOUT BUTTON */}
-      <div className={styles.logoutWrap}>
-        <button className={styles.logoutBtn} onClick={handleLogout}>
-          🚪 Logout
-        </button>
       </div>
 
     </aside>

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useNavigate } from 'react-router-dom'; // ✅ added
 import styles from './Topbar.module.css';
 
 function Topbar() {
@@ -9,23 +10,40 @@ function Topbar() {
     notifications,
     markAllRead,
     unreadCount,
-    user
+    user,
+    logout // ✅ added
   } = useApp();
 
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [userOpen, setUserOpen] = useState(false); // ✅ added
 
-  // ✅ SAFE FALLBACKS (no logic change)
+  const ref = useRef(null);
+  const userRef = useRef(null); // ✅ added
+
+  const navigate = useNavigate(); // ✅ added
+
+  // ✅ SAFE FALLBACKS
   const safeNotifications = notifications || [];
   const safeUnread = unreadCount || 0;
 
   useEffect(() => {
     function handler(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target)) setUserOpen(false); // ✅ added
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // ✅ LOGOUT HANDLER (minimal)
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <header className={styles.bar}>
@@ -44,7 +62,6 @@ function Topbar() {
             onClick={() => {
               setOpen(o => !o);
 
-              // ✅ SAFE CALL (fix crash)
               if (!open && typeof markAllRead === "function") {
                 markAllRead();
               }
@@ -82,9 +99,29 @@ function Topbar() {
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
 
-        {/* 👤 User Avatar */}
-        <div className={styles.avatar}>
-          {user?.email?.charAt(0).toUpperCase() || 'U'}
+        {/* 👤 Avatar + Dropdown */}
+        <div className={styles.userWrap} ref={userRef}>
+          <div
+            className={styles.avatar}
+            onClick={() => setUserOpen((o) => !o)}
+          >
+            {user?.email?.charAt(0).toUpperCase() || "U"}
+          </div>
+
+          {userOpen && (
+            <div className={styles.userDropdown}>
+              <div className={styles.userInfo}>
+                {user?.email || "User"}
+              </div>
+
+              <button
+                className={styles.logoutItem}
+                onClick={handleLogout}
+              >
+                🚪 Logout
+              </button>
+            </div>
+          )}
         </div>
 
       </div>

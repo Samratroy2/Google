@@ -91,25 +91,3 @@
 .statLabel { color: var(--muted); }
 .statVal   { font-weight: 800; }
 
-
-/* Sidebar.module.css */
-
-.logoutWrap {
-  margin-top: auto;
-  padding-top: 20px;
-}
-
-.logoutBtn {
-  width: 100%;
-  padding: 10px;
-  border-radius: 10px;
-  background: #ef4444;
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.logoutBtn:hover {
-  background: #dc2626;
-}

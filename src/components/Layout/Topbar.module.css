@@ -23,9 +23,7 @@
 .name {
   font-size: 19px;
   font-weight: 900;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #6366f1;
 }
 
 .tag {
@@ -130,4 +128,72 @@
   width: 40px;
   height: 40px;
   object-fit:cover;
+}
+
+/* USER WRAP */
+.userWrap {
+  position: relative;
+}
+
+/* AVATAR */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.avatar:hover {
+  transform: scale(1.05);
+}
+
+/* DROPDOWN */
+.userDropdown {
+  position: absolute;
+  top: 45px;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 180px;
+  box-shadow: var(--shadow);
+  padding: 10px;
+  z-index: 100;
+  animation: fadeIn 0.2s ease;
+}
+
+/* USER INFO */
+.userInfo {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  word-break: break-all;
+}
+
+/* LOGOUT BUTTON */
+.logoutItem {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--danger);
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.logoutItem:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
