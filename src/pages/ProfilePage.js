@@ -24,7 +24,13 @@ function ProfilePage() {
     bio: '',
     subSkills: '',
     available: true,
-    proofUrl: ''
+    proofUrl: '',
+
+    // ✅ NEW (NGO fields)
+    organizationName: '',
+    registrationNumber: '',
+    website: '',
+    foundedYear: ''
   });
 
   const detectCurrentLocation = () => {
@@ -57,7 +63,13 @@ function ProfilePage() {
           ? current.subSkills.join(', ')
           : current.subSkills || '',
         available: current.available ?? true,
-        proofUrl: current.proofUrl || ''
+        proofUrl: current.proofUrl || '',
+
+        // ✅ Load NGO fields if exist
+        organizationName: current.organizationName || '',
+        registrationNumber: current.registrationNumber || '',
+        website: current.website || '',
+        foundedYear: current.foundedYear || ''
       });
 
       if (current.lat && current.lng) {
@@ -72,6 +84,8 @@ function ProfilePage() {
   }, [current]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const isNGO = form.role === "NGO"; // ✅ role check
 
   const handlePlaceSelect = () => {
     const place = autoRef.current.getPlace();
@@ -123,9 +137,17 @@ function ProfilePage() {
         bio: form.bio,
         available: form.available,
         proofUrl: form.proofUrl,
+
         subSkills: form.subSkills
           ? form.subSkills.split(',').map(s => s.trim())
           : [],
+
+        // ✅ Save NGO fields (safe even if empty)
+        organizationName: form.organizationName,
+        registrationNumber: form.registrationNumber,
+        website: form.website,
+        foundedYear: form.foundedYear,
+
         status: isAdmin ? "approved" : "pending"
       });
 
@@ -169,53 +191,118 @@ function ProfilePage() {
         disabled
       />
 
-      <Select
-        label="Hobby"
-        value={form.skill}
-        onChange={e => set('skill', e.target.value)}
-        options={[
-          { value: "", label: "Select your skill" },
+      {/* ================= NGO FORM ================= */}
+      {isNGO ? (
+        <>
+          <Input
+            label="Organization Name"
+            value={form.organizationName}
+            onChange={e => set('organizationName', e.target.value)}
+          />
 
-          { value: "Doctor", label: "Doctor" },
-          { value: "Nurse", label: "Nurse" },
-          { value: "Paramedic", label: "Paramedic" },
-          { value: "Pharmacist", label: "Pharmacist" },
+          <Input
+            label="Registration Number"
+            value={form.registrationNumber}
+            onChange={e => set('registrationNumber', e.target.value)}
+          />
 
-          { value: "Counseling", label: "Counselor" },
-          { value: "Caregiver", label: "Caregiver" },
-          { value: "Childcare", label: "Childcare Support" },
+          <Input
+            label="Website"
+            value={form.website}
+            onChange={e => set('website', e.target.value)}
+          />
 
-          { value: "Teacher", label: "Teacher" },
-          { value: "Tutor", label: "Tutor" },
-          { value: "Trainer", label: "Trainer" },
+          <Input
+            label="Founded Year"
+            value={form.foundedYear}
+            onChange={e => set('foundedYear', e.target.value)}
+          />
 
-          { value: "Logistics", label: "Logistics" },
-          { value: "Driver", label: "Driver" },
-          { value: "Field worker", label: "Field Worker" },
-          { value: "Delivery", label: "Delivery Support" },
+          <textarea
+            value={form.bio}
+            onChange={e => set('bio', e.target.value)}
+            placeholder="About Organization"
+            style={{ width: '100%', marginTop: 10, padding: 10 }}
+          />
+        </>
+      ) : (
+        <>
+          {/* ================= VOLUNTEER FORM (UNCHANGED) ================= */}
 
-          { value: "Cook", label: "Cook" },
-          { value: "Food distribution", label: "Food Distribution" },
+          <Select
+            label="Hobby"
+            value={form.skill}
+            onChange={e => set('skill', e.target.value)}
+            options={[
+            { value: "", label: "Select your skill" },
 
-          { value: "IT Support", label: "IT Support" },
-          { value: "Web Developer", label: "Web Developer" },
-          { value: "Data Entry", label: "Data Entry" },
+            { value: "Doctor", label: "Doctor" },
+            { value: "Nurse", label: "Nurse" },
+            { value: "Paramedic", label: "Paramedic" },
+            { value: "Pharmacist", label: "Pharmacist" },
 
-          { value: "Lawyer", label: "Lawyer" },
-          { value: "Documentation", label: "Documentation" },
-          { value: "Admin Support", label: "Admin Support" },
+            { value: "Counseling", label: "Counselor" },
+            { value: "Caregiver", label: "Caregiver" },
+            { value: "Childcare", label: "Childcare Support" },
 
-          { value: "Social Media", label: "Social Media Manager" },
-          { value: "Content Writing", label: "Content Writer" },
-          { value: "Translator", label: "Translator" },
+            { value: "Teacher", label: "Teacher" },
+            { value: "Tutor", label: "Tutor" },
+            { value: "Trainer", label: "Trainer" },
 
-          { value: "Online volunteer", label: "Online Volunteer" },
+            { value: "Logistics", label: "Logistics" },
+            { value: "Driver", label: "Driver" },
+            { value: "Field worker", label: "Field Worker" },
+            { value: "Delivery", label: "Delivery Support" },
 
-          { value: "Event Management", label: "Event Management" },
-          { value: "Fundraising", label: "Fundraising" },
-          { value: "Other", label: "Other" }
-        ]}
-      />
+            { value: "Cook", label: "Cook" },
+            { value: "Food distribution", label: "Food Distribution" },
+
+            { value: "IT Support", label: "IT Support" },
+            { value: "Web Developer", label: "Web Developer" },
+            { value: "Data Entry", label: "Data Entry" },
+
+            { value: "Lawyer", label: "Lawyer" },
+            { value: "Documentation", label: "Documentation" },
+            { value: "Admin Support", label: "Admin Support" },
+
+            { value: "Social Media", label: "Social Media Manager" },
+            { value: "Content Writing", label: "Content Writer" },
+            { value: "Translator", label: "Translator" },
+
+            { value: "Online volunteer", label: "Online Volunteer" },
+
+            { value: "Event Management", label: "Event Management" },
+            { value: "Fundraising", label: "Fundraising" },
+            { value: "Other", label: "Other" }
+          ]}
+          />
+
+          <Input
+            label="Sub Skills"
+            value={form.subSkills}
+            onChange={e => set('subSkills', e.target.value)}
+          />
+
+          <textarea
+            value={form.bio}
+            onChange={e => set('bio', e.target.value)}
+            placeholder="Bio"
+            style={{ width: '100%', marginTop: 10, padding: 10 }}
+          />
+
+          <Select
+            label="Availability"
+            value={form.available ? "true" : "false"}
+            onChange={e => set('available', e.target.value === "true")}
+            options={[
+              { value: "true", label: "🟢 Available" },
+              { value: "false", label: "🔴 Not Available" }
+            ]}
+          />
+        </>
+      )}
+
+      {/* ================= COMMON FIELDS ================= */}
 
       <Autocomplete
         onLoad={(ref) => (autoRef.current = ref)}
@@ -235,29 +322,6 @@ function ProfilePage() {
         label="Phone"
         value={form.phone}
         onChange={e => set('phone', e.target.value)}
-      />
-
-      <Input
-        label="Sub Skills"
-        value={form.subSkills}
-        onChange={e => set('subSkills', e.target.value)}
-      />
-
-      <textarea
-        value={form.bio}
-        onChange={e => set('bio', e.target.value)}
-        placeholder="Bio"
-        style={{ width: '100%', marginTop: 10, padding: 10 }}
-      />
-
-      <Select
-        label="Availability"
-        value={form.available ? "true" : "false"}
-        onChange={e => set('available', e.target.value === "true")}
-        options={[
-          { value: "true", label: "🟢 Available" },
-          { value: "false", label: "🔴 Not Available" }
-        ]}
       />
 
       <Input
