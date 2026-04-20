@@ -7,7 +7,7 @@ import { URGENCY_COLORS, STATUS_COLORS, TYPE_ICONS } from '../data/mockData';
 import { toast } from 'react-toastify';
 import styles from './AdminPage.module.css';
 
-const TABS = ['Overview', 'Needs', 'Volunteers', 'Users', 'Activity'];
+const TABS = ['Overview', 'Needs', 'Volunteers', 'NGOs', 'Users', 'Activity'];
 
 function AdminPage() {
   const {
@@ -35,9 +35,14 @@ function AdminPage() {
     );
   }
 
-  // ✅ FIX: Volunteers from USERS
+  // ✅ Volunteers
   const volunteers = users.filter(
     u => u.role === "Volunteer" && u.status === "approved"
+  );
+
+  // ✅ NGOs (NEW)
+  const ngos = users.filter(
+    u => u.role === "NGO" && u.status === "approved"
   );
 
   // 📊 Stats
@@ -156,11 +161,46 @@ function AdminPage() {
                   <td>{v.email}</td>
                   <td>{v.skill || '-'}</td>
                   <td>{v.location || '-'}</td>
-
                   <td>
                     <Badge
                       text={v.available ? "Available" : "Busy"}
                       color={v.available ? "#22c55e" : "#ef4444"}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ================= NGOs ================= */}
+      {tab === 'NGOs' && (
+        <div className={styles.tableCard}>
+          <h3 className={styles.cardTitle}>
+            NGOs ({ngos.length})
+          </h3>
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Organization</th>
+                <th>Location</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {ngos.map(n => (
+                <tr key={n.uid}>
+                  <td>{n.email}</td>
+                  <td>{n.organization || '-'}</td>
+                  <td>{n.location || '-'}</td>
+                  <td>
+                    <Badge
+                      text={n.available ? "Active" : "Inactive"}
+                      color={n.available ? "#22c55e" : "#ef4444"}
                     />
                   </td>
                 </tr>
@@ -275,43 +315,42 @@ function AdminPage() {
         </div>
       )}
 
+      {/* ================= ACTIVITY ================= */}
+      {tab === 'Activity' && (
+        <div className={styles.tableCard}>
+          <h3 className={styles.cardTitle}>User Activity Logs</h3>
 
-
-    {tab === 'Activity' && (
-      <div className={styles.tableCard}>
-        <h3 className={styles.cardTitle}>User Activity Logs</h3>
-
-        {activities.length === 0 ? (
-          <div style={{ padding: 20, opacity: 0.7 }}>
-            No activity found
-          </div>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Action</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {activities.map(a => (
-                <tr key={a.id}>
-                  <td>{a.email}</td>
-                  <td>{a.action}</td>
-                  <td>
-                    {a.createdAt?.toDate
-                      ? a.createdAt.toDate().toLocaleString()
-                      : '-'}
-                  </td>
+          {activities.length === 0 ? (
+            <div style={{ padding: 20, opacity: 0.7 }}>
+              No activity found
+            </div>
+          ) : (
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Action</th>
+                  <th>Time</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    )}
+              </thead>
+
+              <tbody>
+                {activities.map(a => (
+                  <tr key={a.id}>
+                    <td>{a.email}</td>
+                    <td>{a.action}</td>
+                    <td>
+                      {a.createdAt?.toDate
+                        ? a.createdAt.toDate().toLocaleString()
+                        : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
     </div>
   );
