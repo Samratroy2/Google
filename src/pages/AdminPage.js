@@ -354,7 +354,7 @@ function AdminPage() {
                   <td><Badge text={n.status} color={STATUS_COLORS[n.status]} /></td>
                   <td>{n.qty} {n.unit}</td>
 
-                  <td>
+                  <td className={styles.actionCell}>
                     {n.status === 'Pending' && (
                       <Button onClick={() => updateNeedStatus(n.id, 'Assigned')}>
                         Assign

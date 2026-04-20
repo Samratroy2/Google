@@ -195,3 +195,10 @@
     font-size: 22px;
   }
 }
+
+.actionCell {
+  padding: 10px 12px;      /* inner spacing */
+  display: flex;
+  gap: 8px;                /* space between buttons */
+  align-items: center;
+}
