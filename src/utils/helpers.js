@@ -1,8 +1,10 @@
-// ⏱ TIME AGO (SAFE FOR FIRESTORE + STRING)
+// ⏱ TIME AGO (MORE ROBUST)
 export function timeAgo(ts) {
   if (!ts) return "Just now";
 
   const date = ts?.toDate ? ts.toDate() : new Date(ts);
+  if (isNaN(date)) return "Just now";
+
   const diff = Date.now() - date.getTime();
 
   const mins = Math.floor(diff / 60000);
@@ -12,29 +14,40 @@ export function timeAgo(ts) {
   if (mins < 1) return "Just now";
   if (mins < 60) return `${mins}m ago`;
   if (hrs < 24) return `${hrs}h ago`;
-  return `${days}d ago`;
+  if (days < 7) return `${days}d ago`;
+
+  // 🔥 fallback for older dates
+  return date.toLocaleDateString();
 }
 
-// 👤 INITIALS (SAFE)
+
+// 👤 INITIALS (STRONGER)
 export function getInitials(name = '') {
-  if (!name) return '?';
+  if (!name || typeof name !== 'string') return '?';
 
-  return name
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const parts = name.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-// 📊 SCORE FORMAT
+
+// 📊 SCORE FORMAT (SAFE)
 export function formatScore(score) {
-  return `${Math.round((score || 0) * 100)}%`;
+  const val = typeof score === 'number' ? score : 0;
+  return `${Math.round(val)}%`;
 }
 
-// 🎨 SCORE COLOR
+
+// 🎨 SCORE COLOR (SMOOTHER SCALE)
 export function scoreColor(score) {
-  if (score >= 0.85) return '#22c55e';
-  if (score >= 0.65) return '#f59e0b';
-  return '#ef4444';
+  const val = typeof score === 'number' ? score : 0;
+
+  if (val >= 85) return '#22c55e';   // green
+  if (val >= 65) return '#eab308';   // yellow (better than orange)
+  if (val >= 40) return '#f97316';    // orange
+  return '#ef4444';                    // red
 }

@@ -164,11 +164,6 @@ function ProfilePage() {
         status: isAdmin ? "approved" : "pending"
       });
 
-      // ✅ EMAIL VERIFY (fixed, no logic change)
-      if (firebaseUser && !firebaseUser.emailVerified) {
-        await sendEmailVerification(firebaseUser);
-        toast.info("📧 Verification email sent. Check inbox.");
-      }
 
       toast.success(
         isAdmin
@@ -196,19 +191,6 @@ function ProfilePage() {
 
       <h2>👤 Edit Profile</h2>
 
-      {/* ✅ STATUS (fixed source only) */}
-      {!firebaseUser?.emailVerified && (
-        <div style={{ color: '#f59e0b', fontSize: 12 }}>
-          ⚠️ Email not verified
-        </div>
-      )}
-
-      {firebaseUser?.emailVerified && (
-        <div style={{ color: '#22c55e', fontSize: 12 }}>
-          ✅ Email verified
-        </div>
-      )}
-
       <Input label="User ID (UID)" value={current.uid} disabled />
 
       <Input
@@ -228,17 +210,56 @@ function ProfilePage() {
         value={form.skill}
         onChange={e => set('skill', e.target.value)}
         options={[
-          { value: "", label: "Select your hobby" },
+          { value: "", label: "Select your skill" },
+
+          // Healthcare
           { value: "Doctor", label: "Doctor" },
-          { value: "Teacher", label: "Teacher" },
-          { value: "Logistics", label: "Logistics" },
-          { value: "Counseling", label: "Counseling" },
-          { value: "Driver", label: "Driver" },
-          { value: "Field worker", label: "Field worker" },
-          { value: "Lawyer", label: "Lawyer" },
           { value: "Nurse", label: "Nurse" },
-          { value: "Online volunteer", label: "Online volunteer" },
-          { value: "NGO", label: "NGO" }
+          { value: "Paramedic", label: "Paramedic" },
+          { value: "Pharmacist", label: "Pharmacist" },
+
+          // Support & Care
+          { value: "Counseling", label: "Counselor" },
+          { value: "Caregiver", label: "Caregiver" },
+          { value: "Childcare", label: "Childcare Support" },
+
+          // Education
+          { value: "Teacher", label: "Teacher" },
+          { value: "Tutor", label: "Tutor" },
+          { value: "Trainer", label: "Trainer" },
+
+          // Logistics & Field Work
+          { value: "Logistics", label: "Logistics" },
+          { value: "Driver", label: "Driver" },
+          { value: "Field worker", label: "Field Worker" },
+          { value: "Delivery", label: "Delivery Support" },
+
+          // Food & Essentials
+          { value: "Cook", label: "Cook" },
+          { value: "Food distribution", label: "Food Distribution" },
+
+          // Technical
+          { value: "IT Support", label: "IT Support" },
+          { value: "Web Developer", label: "Web Developer" },
+          { value: "Data Entry", label: "Data Entry" },
+
+          // Legal & Admin
+          { value: "Lawyer", label: "Lawyer" },
+          { value: "Documentation", label: "Documentation" },
+          { value: "Admin Support", label: "Admin Support" },
+
+          // Communication
+          { value: "Social Media", label: "Social Media Manager" },
+          { value: "Content Writing", label: "Content Writer" },
+          { value: "Translator", label: "Translator" },
+
+          // Remote / Online
+          { value: "Online volunteer", label: "Online Volunteer" },
+
+          // Misc
+          { value: "Event Management", label: "Event Management" },
+          { value: "Fundraising", label: "Fundraising" },
+          { value: "Other", label: "Other" }
         ]}
       />
 

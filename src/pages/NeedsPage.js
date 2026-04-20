@@ -10,8 +10,22 @@ import { toast } from 'react-toastify';
 import styles from './NeedsPage.module.css';
 
 const STATUSES  = ['All', 'Pending', 'Assigned', 'Completed'];
-const TYPES     = ['All', 'Food', 'Medical', 'Shelter', 'Water', 'Other'];
 const URGENCIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
+const TYPES = [
+  'All',
+  'Food',
+  'Medical',
+  'Shelter',
+  'Water',
+  'Education',
+  'Legal',
+  'Technical',
+  'Communication',
+  'Support',
+  'Operations',
+  'Remote',
+  'Other'
+];
 
 function NeedsPage() {
 

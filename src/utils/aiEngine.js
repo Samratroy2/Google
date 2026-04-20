@@ -1,4 +1,5 @@
-// ── AI ENGINE (FINAL CLEAN) ─────────────────────────
+// ── AI ENGINE (FINAL - FIXED SKILL SCORING) ─────────────────────────
+
 
 // 📍 HAVERSINE DISTANCE
 function getDistanceKm(lat1, lng1, lat2, lng2) {
@@ -17,19 +18,45 @@ function getDistanceKm(lat1, lng1, lat2, lng2) {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+
 // 🧠 TYPE NORMALIZATION
 const normalizeType = (t) => {
   if (!t) return 'Other';
 
   t = t.toLowerCase();
 
-  if (t.includes('medical') || t.includes('doctor')) return 'Medical';
-  if (t.includes('food')) return 'Food';
-  if (t.includes('water')) return 'Water';
-  if (t.includes('shelter')) return 'Shelter';
+  if (t.includes('medical') || t.includes('doctor') || t.includes('injury')) return 'Medical';
+  if (t.includes('food') || t.includes('meal') || t.includes('hungry')) return 'Food';
+  if (t.includes('water') || t.includes('thirst')) return 'Water';
+  if (t.includes('shelter') || t.includes('home')) return 'Shelter';
+
+  if (t.includes('teach') || t.includes('education')) return 'Education';
+  if (t.includes('legal') || t.includes('law')) return 'Legal';
+  if (t.includes('tech') || t.includes('computer')) return 'Technical';
+  if (t.includes('social') || t.includes('media')) return 'Communication';
+  if (t.includes('counsel') || t.includes('care')) return 'Support';
+  if (t.includes('event') || t.includes('fund')) return 'Operations';
+  if (t.includes('online') || t.includes('remote')) return 'Remote';
 
   return 'Other';
 };
+
+
+// 🎯 SKILL MAP
+const skillMap = {
+  Medical: ['Doctor', 'Nurse', 'Paramedic', 'Pharmacist'],
+  Food: ['Cook', 'Food distribution', 'Delivery'],
+  Water: ['Field worker', 'Logistics', 'Driver'],
+  Shelter: ['Field worker', 'Logistics', 'Driver', 'Caregiver'],
+  Education: ['Teacher', 'Tutor', 'Trainer'],
+  Legal: ['Lawyer', 'Documentation'],
+  Technical: ['IT Support', 'Web Developer', 'Data Entry'],
+  Communication: ['Social Media', 'Content Writing', 'Translator'],
+  Support: ['Counseling', 'Childcare', 'Caregiver'],
+  Operations: ['Admin Support', 'Event Management', 'Fundraising'],
+  Remote: ['Online volunteer']
+};
+
 
 // 🤖 MATCH ENGINE
 export function aiMatchVolunteers(need, users) {
@@ -38,89 +65,147 @@ export function aiMatchVolunteers(need, users) {
     u => u.role === "Volunteer" && u.status === "approved"
   );
 
-  if (!need.lat || !need.lng) {
-    console.warn("Need missing coordinates");
-    return [];
-  }
+  if (!need.lat || !need.lng) return [];
+
+  const needType = normalizeType(need.type);
 
   return volunteers
     .map(v => {
 
       if (v.available === false) return null;
 
-      const dist = getDistanceKm(
-        need.lat,
-        need.lng,
-        v.lat,
-        v.lng
-      );
+      const dist = getDistanceKm(need.lat, need.lng, v.lat, v.lng);
 
       let score = 0;
 
-      // 🧠 Skill match
-      if (normalizeType(need.type) === "Medical" && v.skill === "Doctor")
-        score += 0.7;
-      else
-        score += 0.3;
+      const validSkills = skillMap[needType] || [];
+      const userSkill = (v.skill || '').toLowerCase();
 
-      // 📍 Distance score
-      let distScore =
-        dist <= 1 ? 1 :
-        dist <= 3 ? 0.8 :
-        dist <= 5 ? 0.6 :
-        dist <= 10 ? 0.4 :
-        0.2;
+      const validSet = validSkills.map(s => s.toLowerCase());
 
-      score += distScore * 0.2;
+      // 🎯 SKILL SCORING (FIXED)
+      if (validSet.includes(userSkill)) {
+        score += 70;
+      } else {
+        score += 20;
+      }
 
-      // 📊 Experience
-      const exp = Math.min(1, (v.tasksCompleted || 0) / 20);
-      score += exp * 0.1;
+      // 📍 DISTANCE (0–20)
+      const distScore = Math.max(0, 1 - (dist / 15));
+      score += distScore * 20;
+
+      // 📊 EXPERIENCE (0–10)
+      const exp = Math.log1p(v.tasksCompleted || 0) / Math.log(20);
+      score += Math.min(exp, 1) * 10;
+
+      // ⚡ URGENCY BONUS
+      if (need.urgency === 'Critical') score += 5;
+      else if (need.urgency === 'High') score += 3;
 
       return {
         ...v,
         distance: +dist.toFixed(2),
-        matchScore: +score.toFixed(2)
+        matchScore: Math.round(score)
       };
     })
     .filter(Boolean)
     .sort((a, b) => {
-      if (b.matchScore !== a.matchScore) {
-        return b.matchScore - a.matchScore; // primary: score
-      }
-      return a.distance - b.distance; // secondary: distance
+      if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+      return a.distance - b.distance;
     });
 }
 
 
-// ── NLP ─────────────────────────
+// ── NLP ENGINE ─────────────────────────
 
-export function nlpClassify(text) {
-  const t = text.toLowerCase();
 
-  let category = 'Other';
+// 🔤 CLEAN TEXT
+const cleanText = (text = "") =>
+  text.toLowerCase().replace(/[^\w\s]/g, '');
 
-  if (/food|meal|rice/.test(t)) category = 'Food';
-  else if (/water/.test(t)) category = 'Water';
-  else if (/doctor|medical/.test(t)) category = 'Medical';
-  else if (/shelter/.test(t)) category = 'Shelter';
 
-  let urgency = 'Medium';
+// 🧠 CATEGORY KEYWORDS
+const CATEGORY_KEYWORDS = {
+  Food: ['food', 'meal', 'rice', 'hungry', 'eat'],
+  Water: ['water', 'drink', 'thirst'],
+  Medical: ['doctor', 'medical', 'injury', 'hospital', 'medicine'],
+  Shelter: ['shelter', 'home', 'house', 'roof'],
 
-  if (/critical|emergency/.test(t)) urgency = 'Critical';
-  else if (/urgent/.test(t)) urgency = 'High';
-  else if (/low/.test(t)) urgency = 'Low';
+  Education: ['teach', 'education', 'school'],
+  Legal: ['legal', 'law', 'case'],
+  Technical: ['tech', 'computer', 'system'],
+  Communication: ['social', 'media', 'translate'],
+  Support: ['counsel', 'care', 'support'],
+  Operations: ['event', 'fund', 'management'],
+  Remote: ['online', 'remote']
+};
 
-  const qty = parseInt(t.match(/\d+/)?.[0]) || null;
 
-  return { category, urgency, qty };
+// 🚨 URGENCY KEYWORDS
+const URGENCY_KEYWORDS = {
+  Critical: ['critical', 'emergency', 'dying'],
+  High: ['urgent', 'asap'],
+  Medium: ['need', 'help'],
+  Low: ['later']
+};
+
+
+// 🔍 CATEGORY MATCH
+function matchCategory(text) {
+  let best = 'Other';
+  let max = 0;
+
+  for (const [cat, words] of Object.entries(CATEGORY_KEYWORDS)) {
+    let score = 0;
+
+    words.forEach(w => {
+      if (text.includes(w)) score += 2;
+    });
+
+    if (score > max) {
+      max = score;
+      best = cat;
+    }
+  }
+
+  return best;
 }
 
+
+// 🔍 URGENCY MATCH
+function matchUrgency(text) {
+  for (const [level, words] of Object.entries(URGENCY_KEYWORDS)) {
+    if (words.some(w => text.includes(w))) return level;
+  }
+  return 'Medium';
+}
+
+
+// 🔢 QUANTITY
+function extractQuantity(text) {
+  const match = text.match(/\b\d+\b/);
+  return match ? parseInt(match[0]) : null;
+}
+
+
+// 🤖 NLP MAIN
+export function nlpClassify(text) {
+  const t = cleanText(text);
+
+  return {
+    category: matchCategory(t),
+    urgency: matchUrgency(t),
+    qty: extractQuantity(t)
+  };
+}
+
+
+// 🎯 URGENCY SCORE
 export function detectUrgencyScore(text) {
-  const t = text.toLowerCase();
+  const t = cleanText(text);
 
   if (/critical|emergency/.test(t)) return 95;
-  if (/urgent/.test(t)) return 80;
+  if (/urgent|asap/.test(t)) return 80;
   if (/help|need/.test(t)) return 60;
 
   return 30;
