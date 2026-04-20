@@ -5,10 +5,6 @@ import Input from '../components/UI/Input';
 import Select from '../components/UI/Select';
 import { toast } from 'react-toastify';
 import { Autocomplete } from "@react-google-maps/api";
-import { sendEmailVerification } from "firebase/auth";
-
-// ✅ ADD THIS
-import { auth } from "../firebase";
 
 function ProfilePage() {
   const { user, users, updateUser } = useApp();
@@ -31,17 +27,15 @@ function ProfilePage() {
     proofUrl: ''
   });
 
-  // ✅ ADD THIS (real firebase user)
-  const firebaseUser = auth.currentUser;
-
   const detectCurrentLocation = () => {
     if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setCoords({ lat, lng });
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
       },
       () => {
         console.warn("Location permission denied");
@@ -76,35 +70,6 @@ function ProfilePage() {
       }
     }
   }, [current]);
-
-  // ✅ ADD THIS (safe reload)
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    const refresh = async () => {
-      try {
-        await firebaseUser.reload();
-      } catch {}
-    };
-
-    refresh();
-  }, [firebaseUser]);
-
-  // ✅ OPTIONAL auto-check verification
-  useEffect(() => {
-    if (!firebaseUser) return;
-
-    const interval = setInterval(async () => {
-      await firebaseUser.reload();
-
-      if (firebaseUser.emailVerified) {
-        toast.success("✅ Email verified!");
-        clearInterval(interval);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [firebaseUser]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -164,7 +129,6 @@ function ProfilePage() {
         status: isAdmin ? "approved" : "pending"
       });
 
-
       toast.success(
         isAdmin
           ? "✅ Profile updated instantly"
@@ -191,7 +155,7 @@ function ProfilePage() {
 
       <h2>👤 Edit Profile</h2>
 
-      <Input label="User ID (UID)" value={current.uid} disabled />
+      <Input label="User ID (cannot be changed)" value={current.uid} disabled />
 
       <Input
         label="Username"
@@ -200,9 +164,9 @@ function ProfilePage() {
       />
 
       <Input
-        label="Email"
+        label="Email (cannot be changed)"
         value={form.email}
-        onChange={e => set('email', e.target.value)}
+        disabled
       />
 
       <Select
@@ -212,51 +176,41 @@ function ProfilePage() {
         options={[
           { value: "", label: "Select your skill" },
 
-          // Healthcare
           { value: "Doctor", label: "Doctor" },
           { value: "Nurse", label: "Nurse" },
           { value: "Paramedic", label: "Paramedic" },
           { value: "Pharmacist", label: "Pharmacist" },
 
-          // Support & Care
           { value: "Counseling", label: "Counselor" },
           { value: "Caregiver", label: "Caregiver" },
           { value: "Childcare", label: "Childcare Support" },
 
-          // Education
           { value: "Teacher", label: "Teacher" },
           { value: "Tutor", label: "Tutor" },
           { value: "Trainer", label: "Trainer" },
 
-          // Logistics & Field Work
           { value: "Logistics", label: "Logistics" },
           { value: "Driver", label: "Driver" },
           { value: "Field worker", label: "Field Worker" },
           { value: "Delivery", label: "Delivery Support" },
 
-          // Food & Essentials
           { value: "Cook", label: "Cook" },
           { value: "Food distribution", label: "Food Distribution" },
 
-          // Technical
           { value: "IT Support", label: "IT Support" },
           { value: "Web Developer", label: "Web Developer" },
           { value: "Data Entry", label: "Data Entry" },
 
-          // Legal & Admin
           { value: "Lawyer", label: "Lawyer" },
           { value: "Documentation", label: "Documentation" },
           { value: "Admin Support", label: "Admin Support" },
 
-          // Communication
           { value: "Social Media", label: "Social Media Manager" },
           { value: "Content Writing", label: "Content Writer" },
           { value: "Translator", label: "Translator" },
 
-          // Remote / Online
           { value: "Online volunteer", label: "Online Volunteer" },
 
-          // Misc
           { value: "Event Management", label: "Event Management" },
           { value: "Fundraising", label: "Fundraising" },
           { value: "Other", label: "Other" }
@@ -311,21 +265,6 @@ function ProfilePage() {
         value={form.proofUrl}
         onChange={e => set('proofUrl', e.target.value)}
       />
-
-      {/* ✅ RESEND */}
-      {!firebaseUser?.emailVerified && (
-        <Button
-          onClick={async () => {
-            if (firebaseUser) {
-              await sendEmailVerification(firebaseUser);
-              toast.success("📧 Verification email sent again!");
-            }
-          }}
-          style={{ marginTop: 10 }}
-        >
-          Resend Verification Email
-        </Button>
-      )}
 
       <Button onClick={handleSave} style={{ width: '100%', marginTop: 20 }}>
         💾 Save Changes
