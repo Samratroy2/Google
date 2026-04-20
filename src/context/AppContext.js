@@ -192,6 +192,7 @@ export function AppProvider({ children }) {
     try {
       await addDoc(collection(db, "needs"), {
         ...need,
+        requiredVolunteers: need.requiredVolunteers || 1, // ✅ ensure exists
         status: 'Pending',
         createdAt: serverTimestamp(),
         postedBy: {
@@ -225,50 +226,73 @@ export function AppProvider({ children }) {
     }
   }, [logActivity]);
 
-  // ✅ ASSIGN
-  const assignVolunteer = useCallback(async (needId, volunteer) => {
-    await updateDoc(doc(db, "needs", needId), {
-      status: "Assigned",
-      assignedTo: {
-        uid: volunteer.uid,
-        name: volunteer.name || volunteer.email || "Volunteer"
+  // ✅ UPDATED ASSIGN LOGIC (MAIN CHANGE)
+  const assignVolunteer = useCallback(async (needId, volunteers) => {
+    try {
+      const needRef = doc(db, "needs", needId);
+      const snap = await getDoc(needRef);
+      const needData = snap.data();
+
+      const required = needData.requiredVolunteers || 1;
+
+      // ✅ CORE LOGIC (YOUR REQUIREMENT)
+      const assignedVolunteers = volunteers.slice(
+        0,
+        Math.min(volunteers.length, required)
+      );
+
+      await updateDoc(needRef, {
+        status: "Assigned",
+        assignedTo: assignedVolunteers.map(v => ({
+          uid: v.uid,
+          name: v.name || v.email || "Volunteer"
+        }))
+      });
+
+      // mark all assigned as unavailable
+      for (let v of assignedVolunteers) {
+        await updateDoc(doc(db, "users", v.uid), {
+          available: false
+        });
       }
-    });
 
-    await updateDoc(doc(db, "users", volunteer.uid), {
-      available: false
-    });
+      await logActivity(`👷 Assigned ${assignedVolunteers.length} volunteers`);
 
-    await logActivity(`👷 Assigned ${volunteer.name}`);
+    } catch (err) {
+      console.error("Assign error:", err);
+    }
   }, [logActivity]);
 
   // ✅ COMPLETE
-  const completeTask = useCallback(async (need, rating) => {
-    const volunteerId = need.assignedTo?.uid;
-    if (!volunteerId) return;
+  // ✅ ONLY showing updated part (completeTask FIX)
 
-    await updateDoc(doc(db, "needs", need.id), {
-      status: "Completed",
-      rating
-    });
+const completeTask = useCallback(async (need, ratings) => {
 
-    const userRef = doc(db, "users", volunteerId);
+  await updateDoc(doc(db, "needs", need.id), {
+    status: "Completed"
+  });
+
+  for (let r of ratings) {
+    const userRef = doc(db, "users", r.uid);
     const snap = await getDoc(userRef);
     const data = snap.data();
 
     const total = (data.totalRatings || 0) + 1;
+
     const avg =
-      ((data.rating || 0) * (data.totalRatings || 0) + rating) / total;
+      ((data.rating || 0) * (data.totalRatings || 0) + r.rating) / total;
 
     await updateDoc(userRef, {
-      available: true,
+      available: true, // ✅ VERY IMPORTANT
       tasksCompleted: (data.tasksCompleted || 0) + 1,
       rating: avg,
       totalRatings: total
     });
+  }
 
-    await logActivity("✅ Task completed");
-  }, [logActivity]);
+  await logActivity("✅ Task completed & volunteers released");
+
+}, [logActivity]);
 
   // 👤 USER ACTIONS
   const updateUser = async (uid, data) => {
@@ -354,3 +378,4 @@ function getTimeAgo(ts) {
 
   return `${Math.floor(hrs / 24)}d ago`;
 }
+

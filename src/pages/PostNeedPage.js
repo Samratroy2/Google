@@ -18,7 +18,8 @@ const EMPTY = {
   unit: 'packets',
   location: '',
   urgency: 'Medium',
-  description: ''
+  description: '',
+  requiredVolunteers: '' // ✅ ADDED
 };
 
 function PostNeedPage() {
@@ -68,6 +69,12 @@ function PostNeedPage() {
     if (!form.title.trim()) e.title = 'Title required';
     if (!form.location.trim()) e.location = 'Location required';
     if (!form.qty || isNaN(form.qty)) e.qty = 'Invalid quantity';
+
+    // ✅ ADDED VALIDATION
+    if (!form.requiredVolunteers || isNaN(form.requiredVolunteers)) {
+      e.requiredVolunteers = 'Invalid number';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -83,6 +90,7 @@ function PostNeedPage() {
     addNeed({
       ...form,
       qty: parseInt(form.qty),
+      requiredVolunteers: parseInt(form.requiredVolunteers), // ✅ ADDED
       lat: coords.lat,
       lng: coords.lng,
       postedBy: 'You',
@@ -126,6 +134,13 @@ function PostNeedPage() {
             value={form.qty}
             onChange={e => set('qty', e.target.value)}
             error={errors.qty}
+          />
+
+          {/* ✅ NEW FIELD */}
+          <Input label="Required Volunteers"
+            value={form.requiredVolunteers}
+            onChange={e => set('requiredVolunteers', e.target.value)}
+            error={errors.requiredVolunteers}
           />
 
           <Input label="Unit"

@@ -7,9 +7,21 @@ import { formatScore, scoreColor } from '../../utils/helpers';
 import styles from './MatchModal.module.css';
 
 function MatchModal({ open, onClose, need, matches, onAssign }) {
-  const [selected, setSelected] = useState(null);
+
+  // ✅ MULTI SELECT
+  const [selected, setSelected] = useState([]);
 
   if (!need) return null;
+
+  const toggleSelect = (vol) => {
+    setSelected(prev => {
+      const exists = prev.find(v => v.id === vol.id);
+      if (exists) {
+        return prev.filter(v => v.id !== vol.id);
+      }
+      return [...prev, vol];
+    });
+  };
 
   return (
     <Modal open={open} onClose={onClose} title="🤖 AI Match Results" width={520}>
@@ -36,67 +48,70 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
         </div>
       )}
 
-      {matches.slice(0, 4).map((v, i) => (
-        <div
-          key={v.id}
-          onClick={() => setSelected(v)} // ✅ selectable
-          className={`
-            ${styles.volRow} 
-            ${i === 0 ? styles.top : ''} 
-            ${selected?.id === v.id ? styles.selected : ''}
-          `}
-        >
-          {i === 0 && <div className={styles.bestTag}>⭐ BEST MATCH</div>}
+      {matches.slice(0, 6).map((v, i) => {
+        const isSelected = selected.find(s => s.id === v.id);
 
+        return (
           <div
-            className={styles.avatar}
-            style={{
-              background: SKILL_COLORS[v.skill] + '33',
-              color: SKILL_COLORS[v.skill]
-            }}
+            key={v.id}
+            onClick={() => toggleSelect(v)} // ✅ multi select
+            className={`
+              ${styles.volRow} 
+              ${i === 0 ? styles.top : ''} 
+              ${isSelected ? styles.selected : ''}
+            `}
           >
-            {v.avatar}
-          </div>
+            {i === 0 && <div className={styles.bestTag}>⭐ BEST MATCH</div>}
 
-          <div className={styles.volInfo}>
-            <div className={styles.volName}>{v.name}</div>
-
-            {/* ✅ NEW: username + phone */}
-            <div className={styles.volMeta}>
-              <span>@{v.username || 'unknown'}</span>
-              <span>·</span>
-              <span>{v.phone || 'No phone'}</span>
-            </div>
-
-            <div className={styles.volMeta}>
-              <span>{v.skill}</span>
-              <span>·</span>
-              <span>{v.distance} km away</span>
-              <span>·</span>
-              <span>{v.tasksCompleted} tasks done</span>
-            </div>
-          </div>
-
-          <div className={styles.scoreBox}>
             <div
-              className={styles.score}
-              style={{ color: scoreColor(v.matchScore) }}
+              className={styles.avatar}
+              style={{
+                background: SKILL_COLORS[v.skill] + '33',
+                color: SKILL_COLORS[v.skill]
+              }}
             >
-              {formatScore(v.matchScore)}
+              {v.avatar}
             </div>
 
-            <div className={styles.scoreBar}>
+            <div className={styles.volInfo}>
+              <div className={styles.volName}>{v.name}</div>
+
+              <div className={styles.volMeta}>
+                <span>@{v.username || 'unknown'}</span>
+                <span>·</span>
+                <span>{v.phone || 'No phone'}</span>
+              </div>
+
+              <div className={styles.volMeta}>
+                <span>{v.skill}</span>
+                <span>·</span>
+                <span>{v.distance} km away</span>
+                <span>·</span>
+                <span>{v.tasksCompleted} tasks done</span>
+              </div>
+            </div>
+
+            <div className={styles.scoreBox}>
               <div
-                className={styles.scoreFill}
-                style={{
-                  width: formatScore(v.matchScore),
-                  background: scoreColor(v.matchScore)
-                }}
-              />
+                className={styles.score}
+                style={{ color: scoreColor(v.matchScore) }}
+              >
+                {formatScore(v.matchScore)}
+              </div>
+
+              <div className={styles.scoreBar}>
+                <div
+                  className={styles.scoreFill}
+                  style={{
+                    width: formatScore(v.matchScore),
+                    background: scoreColor(v.matchScore)
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* ✅ ACTION BUTTON */}
       {matches.length > 0 && (
@@ -104,12 +119,25 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
           <Button
             fullWidth
             onClick={() => {
-              const chosen = selected || matches[0]; // ✅ fallback best
-              onAssign && onAssign(chosen);
+
+              // ✅ CORE LOGIC
+              const required = need.requiredVolunteers || 1;
+
+              const selectedVols =
+                selected.length > 0
+                  ? selected
+                  : matches.slice(0, required);
+
+              const finalVols = selectedVols.slice(
+                0,
+                Math.min(selectedVols.length, required)
+              );
+
+              onAssign && onAssign(finalVols); // ✅ PASS ARRAY
               onClose();
             }}
           >
-            ✅ Assign {selected?.name || matches[0]?.name}
+            ✅ Assign {selected.length || Math.min(matches.length, need.requiredVolunteers || 1)} Volunteers
           </Button>
         </div>
       )}

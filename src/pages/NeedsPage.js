@@ -15,7 +15,6 @@ const URGENCIES = ['All', 'Critical', 'High', 'Medium', 'Low'];
 
 function NeedsPage() {
 
-  // ✅ ONLY ADD THESE (no removal)
   const { 
     needs, 
     users, 
@@ -35,57 +34,52 @@ function NeedsPage() {
     matches: []
   });
 
-  // 🤖 AI match (prevent busy users)
+  // 🤖 AI match
   const handleMatch = (need) => {
-    const availableUsers = users.filter(u => u.available !== false); // ✅ safe filter
+    const availableUsers = users.filter(u => u.available !== false);
     const matches = aiMatchVolunteers(need, availableUsers);
     setMatchState({ open: true, need, matches });
   };
 
-  // ✅ Assign volunteer (UPDATED)
-  const handleAssign = (volunteer) => {
+  // ✅ MULTI ASSIGN (UNCHANGED)
+  const handleAssign = (volunteers) => {
+    const list = Array.isArray(volunteers) ? volunteers : [volunteers];
+    const valid = list.filter(v => v.available !== false);
 
-    // ❗ prevent assigning busy volunteer
-    if (volunteer.available === false) {
-      toast.error("Volunteer is busy");
+    if (valid.length === 0) {
+      toast.error("No available volunteers selected");
       return;
     }
 
-    // ✅ NEW LOGIC
     if (assignVolunteer) {
-      assignVolunteer(matchState.need.id, volunteer);
+      assignVolunteer(matchState.need.id, valid);
     } else {
       updateNeedStatus(matchState.need.id, 'Assigned');
     }
 
-    toast.success(`✅ ${volunteer.name} assigned to "${matchState.need.title}"`);
+    toast.success(`✅ ${valid.length} volunteer(s) assigned`);
   };
 
-  // 🔄 Status change (UPDATED ONLY FOR COMPLETE)
-  const handleStatusChange = (id, status) => {
+  // 🔥 FIXED: HANDLE MULTIPLE RATINGS
+  const handleStatusChange = (id, status, ratings = null) => {
 
-    // ✅ intercept completion
     if (status === "Completed" && completeTask) {
       const need = needs.find(n => n.id === id);
 
-      const rating = Number(prompt("Rate volunteer (1-5):"));
-
-      if (!rating || rating < 1 || rating > 5) {
-        toast.error("Invalid rating");
+      if (!ratings || ratings.length === 0) {
+        toast.error("Ratings missing");
         return;
       }
 
-      completeTask(need, rating);
-      toast.success("Task completed & rated ⭐");
+      completeTask(need, ratings); // ✅ PASS ARRAY
+      toast.success("Task completed & all volunteers rated ⭐");
       return;
     }
 
-    // 🔁 fallback (UNCHANGED)
     updateNeedStatus(id, status);
     toast.success(`Status updated to ${status}`);
   };
 
-  // 🗑 Delete (UNCHANGED)
   const handleDelete = (id) => {
     if (window.confirm('Delete this need?')) {
       deleteNeed(id);
@@ -93,7 +87,6 @@ function NeedsPage() {
     }
   };
 
-  // 🔐 Permission logic (UNCHANGED)
   const canDelete = (need) => {
     const ownerId =
       typeof need.postedBy === 'object'
@@ -108,6 +101,7 @@ function NeedsPage() {
 
   return (
     <div>
+
       {/* HEADER */}
       <div className={styles.header}>
         <div>
@@ -120,7 +114,7 @@ function NeedsPage() {
         </Button>
       </div>
 
-      {/* 🔍 SEARCH + FILTERS */}
+      {/* FILTERS */}
       <div className={styles.filters}>
         <input
           className={styles.search}
@@ -131,7 +125,6 @@ function NeedsPage() {
 
         <div className={styles.filterGroups}>
 
-          {/* STATUS */}
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Status</span>
             {STATUSES.map(s => (
@@ -145,7 +138,6 @@ function NeedsPage() {
             ))}
           </div>
 
-          {/* TYPE */}
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Type</span>
             {TYPES.map(t => (
@@ -159,7 +151,6 @@ function NeedsPage() {
             ))}
           </div>
 
-          {/* URGENCY */}
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Urgency</span>
             {URGENCIES.map(u => (
@@ -176,7 +167,7 @@ function NeedsPage() {
         </div>
       </div>
 
-      {/* EMPTY STATE */}
+      {/* EMPTY */}
       {filtered.length === 0 && (
         <div className={styles.empty}>
           No needs match your filters.
@@ -189,7 +180,7 @@ function NeedsPage() {
         </div>
       )}
 
-      {/* 🧾 NEED LIST */}
+      {/* LIST */}
       <div>
         {filtered.map(need => (
           <NeedCard
@@ -202,7 +193,7 @@ function NeedsPage() {
         ))}
       </div>
 
-      {/* 🤖 MATCH MODAL */}
+      {/* MODAL */}
       <MatchModal
         open={matchState.open}
         onClose={() => setMatchState(s => ({ ...s, open: false }))}
