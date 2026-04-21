@@ -267,33 +267,63 @@ export function AppProvider({ children }) {
   // ✅ COMPLETE
   // ✅ ONLY showing updated part (completeTask FIX)
 
-const completeTask = useCallback(async (need, ratings) => {
 
-  await updateDoc(doc(db, "needs", need.id), {
-    status: "Completed"
-  });
 
-  for (let r of ratings) {
-    const userRef = doc(db, "users", r.uid);
-    const snap = await getDoc(userRef);
-    const data = snap.data();
+  const completeTask = useCallback(async (need, ratings) => {
 
-    const total = (data.totalRatings || 0) + 1;
-
-    const avg =
-      ((data.rating || 0) * (data.totalRatings || 0) + r.rating) / total;
-
-    await updateDoc(userRef, {
-      available: true, // ✅ VERY IMPORTANT
-      tasksCompleted: (data.tasksCompleted || 0) + 1,
-      rating: avg,
-      totalRatings: total
+    // mark completed
+    await updateDoc(doc(db, "needs", need.id), {
+      status: "Completed"
     });
-  }
 
-  await logActivity("✅ Task completed & volunteers released");
+    // =========================
+    // VOLUNTEER FLOW (no ratings)
+    // =========================
+    if (!ratings || ratings.length === 0) {
+      const volunteers = need.assignedTo || [];
 
-}, [logActivity]);
+      for (let v of volunteers) {
+        const uid = typeof v === "object" ? v.uid : v;
+
+        if (!uid) continue;
+
+        await updateDoc(doc(db, "users", uid), {
+          available: true
+        });
+      }
+    }
+
+    // =========================
+    // OWNER FLOW (with ratings)
+    // =========================
+    for (let r of ratings || []) {
+
+      if (!r.uid) continue;
+
+      const userRef = doc(db, "users", r.uid);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) continue;
+
+      const data = snap.data();
+
+      const total = (data.totalRatings || 0) + 1;
+
+      const avg =
+        ((data.rating || 0) * (data.totalRatings || 0) + r.rating) / total;
+
+      await updateDoc(userRef, {
+        available: true,
+        tasksCompleted: (data.tasksCompleted || 0) + 1,
+        rating: avg,
+        totalRatings: total
+      });
+    }
+
+    await logActivity("✅ Task completed & volunteers released");
+
+  }, [logActivity]);
+
 
   // 👤 USER ACTIONS
   const updateUser = async (uid, data) => {

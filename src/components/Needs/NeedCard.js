@@ -14,7 +14,6 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const userEmail = currentUser?.email;
 
-  // ✅ FIX: always extract properly
   const creator = need.postedBy || {};
   const creatorEmail =
     typeof creator === 'object'
@@ -34,10 +33,10 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const isVolunteer = assignedEmails.includes(userEmail);
 
-  // ✅ EMAIL API CALL
+  // ✅ EMAIL API
   const sendEmailToCreator = async () => {
     try {
-      await fetch("http://localhost:5000/api/send-email", {
+      const res = await fetch("http://localhost:5000/api/send-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -47,8 +46,17 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
           needTitle: need.title
         })
       });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("❌ Email failed:", data);
+      } else {
+        console.log("✅ Email actually sent");
+      }
+
     } catch (err) {
-      console.error("Email send failed:", err);
+      console.error("Email error:", err);
     }
   };
 
@@ -61,9 +69,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
     const volunteers = need.assignedTo || [];
 
-    // =========================
-    // ✅ OWNER FLOW (WITH RATING)
-    // =========================
+    // OWNER FLOW
     if (isOwner) {
 
       if (volunteers.length === 0) {
@@ -90,41 +96,17 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
         });
       }
 
-      // ✅ complete with ratings
       onStatusChange && onStatusChange(need.id, 'Completed', ratings);
     }
 
-    // =========================
-    // ✅ VOLUNTEER FLOW (NO RATING)
-    // =========================
+    // VOLUNTEER FLOW
     else if (isVolunteer) {
 
-      // ✅ mark completed WITHOUT ratings
       onStatusChange && onStatusChange(need.id, 'Completed');
 
-      // ✅ send email to creator
       if (creatorEmail) {
         await sendEmailToCreator();
       }
-
-      const res = await fetch("http://localhost:5000/api/send-email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        toEmail: creatorEmail,
-        needTitle: need.title
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error("❌ Email failed:", data);
-    } else {
-      console.log("✅ Email actually sent");
-    }
     }
   };
 
