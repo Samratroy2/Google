@@ -4,7 +4,7 @@ import Button from '../UI/Button';
 import { URGENCY_COLORS, STATUS_COLORS, TYPE_ICONS } from '../../data/mockData';
 import styles from './NeedCard.module.css';
 
-function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
+function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const needType = need.category || need.type || 'Other';
   const required = need.requiredVolunteers || 1;
@@ -12,36 +12,125 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
   const isFull = assignedCount >= required;
   const isCompleted = need.status === 'Completed';
 
-  // ✅ MULTI RATING
-  const handleComplete = () => {
-    const volunteers = need.assignedTo || [];
+  const userEmail = currentUser?.email;
 
-    if (volunteers.length === 0) {
-      alert("No volunteers assigned");
+  // ✅ FIX: always extract properly
+  const creator = need.postedBy || {};
+  const creatorEmail =
+    typeof creator === 'object'
+      ? creator.email || ""
+      : creator;
+
+  const creatorName =
+    typeof creator === 'object'
+      ? creator.name || "User"
+      : creator;
+
+  const isOwner = userEmail === creatorEmail;
+
+  const assignedEmails = (need.assignedTo || []).map(v =>
+    typeof v === 'object' ? v.email || v.name : v
+  );
+
+  const isVolunteer = assignedEmails.includes(userEmail);
+
+  // ✅ EMAIL API CALL
+  const sendEmailToCreator = async () => {
+    try {
+      await fetch("http://localhost:5000/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          toEmail: creatorEmail,
+          needTitle: need.title
+        })
+      });
+    } catch (err) {
+      console.error("Email send failed:", err);
+    }
+  };
+
+  const handleComplete = async () => {
+
+    if (!isOwner && !isVolunteer) {
+      alert("Not allowed");
       return;
     }
 
-    const ratings = [];
+    const volunteers = need.assignedTo || [];
 
-    for (let v of volunteers) {
-      let rating = Number(prompt(`Rate ${v.name} (1-5):`));
+    // =========================
+    // ✅ OWNER FLOW (WITH RATING)
+    // =========================
+    if (isOwner) {
 
-      if (!rating || rating < 1 || rating > 5) {
-        alert("Invalid rating");
+      if (volunteers.length === 0) {
+        alert("No volunteers assigned");
         return;
       }
 
-      ratings.push({
-        uid: v.uid,
-        rating
-      });
+      const ratings = [];
+
+      for (let v of volunteers) {
+        const name = typeof v === 'object' ? v.name : v;
+
+        let rating = Number(prompt(`Rate ${name} (1-5):`));
+
+        if (!rating || rating < 1 || rating > 5) {
+          alert("Invalid rating");
+          return;
+        }
+
+        ratings.push({
+          uid: typeof v === 'object' ? v.uid : v,
+          name,
+          rating
+        });
+      }
+
+      // ✅ complete with ratings
+      onStatusChange && onStatusChange(need.id, 'Completed', ratings);
     }
 
-    onStatusChange && onStatusChange(need.id, 'Completed', ratings);
+    // =========================
+    // ✅ VOLUNTEER FLOW (NO RATING)
+    // =========================
+    else if (isVolunteer) {
+
+      // ✅ mark completed WITHOUT ratings
+      onStatusChange && onStatusChange(need.id, 'Completed');
+
+      // ✅ send email to creator
+      if (creatorEmail) {
+        await sendEmailToCreator();
+      }
+
+      const res = await fetch("http://localhost:5000/api/send-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        toEmail: creatorEmail,
+        needTitle: need.title
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("❌ Email failed:", data);
+    } else {
+      console.log("✅ Email actually sent");
+    }
+    }
   };
 
   return (
     <div className={styles.card}>
+
       <div className={styles.top}>
         <div className={styles.left}>
           <span className={styles.typeIcon}>
@@ -68,10 +157,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
 
       <div className={styles.bottom}>
         <div className={styles.info}>
-          Posted by -{" "}
-          {typeof need.postedBy === 'object'
-            ? need.postedBy.uid
-            : need.postedBy}
+          Posted by - {creatorName}
 
           <span className={styles.dot}>·</span>
 
@@ -92,7 +178,6 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
 
         <div className={styles.actions}>
 
-          {/* ❌ HIDE EVERYTHING AFTER COMPLETE */}
           {!isCompleted && !isFull && (
             <>
               <Button size="sm" onClick={() => onMatch && onMatch(need)}>
@@ -102,7 +187,9 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
               <Button
                 size="sm"
                 variant="success"
-                onClick={() => onStatusChange && onStatusChange(need.id, 'Assigned')}
+                onClick={() =>
+                  onStatusChange && onStatusChange(need.id, 'Assigned')
+                }
               >
                 Assign
               </Button>
@@ -113,13 +200,13 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange }) {
             <Button
               size="sm"
               variant="success"
+              disabled={!isOwner && !isVolunteer}
               onClick={handleComplete}
             >
               ✅ Complete
             </Button>
           )}
 
-          {/* ✅ AFTER COMPLETE */}
           {isCompleted && (
             <span style={{ color: '#22c55e', fontWeight: 600 }}>
               ✅ Task Completed

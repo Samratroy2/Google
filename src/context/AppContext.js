@@ -197,7 +197,8 @@ export function AppProvider({ children }) {
         createdAt: serverTimestamp(),
         postedBy: {
           name: user?.name || "User",
-          uid: user?.uid
+          uid: user?.uid,
+          email: user?.email
         }
       });
 
@@ -342,6 +343,7 @@ const completeTask = useCallback(async (need, ratings) => {
       completeTask,
 
       user,
+      currentUser: user, 
       authLoading,
 
       login,

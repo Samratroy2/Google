@@ -9,7 +9,7 @@ import { NEED_TYPES, URGENCY_LEVELS } from '../data/mockData';
 import { toast } from 'react-toastify';
 import styles from './PostNeedPage.module.css';
 
-import { Autocomplete } from "@react-google-maps/api"; // ✅ ONLY THIS
+import { Autocomplete } from "@react-google-maps/api";
 
 const EMPTY = {
   title: '',
@@ -19,18 +19,18 @@ const EMPTY = {
   location: '',
   urgency: 'Medium',
   description: '',
-  requiredVolunteers: '' // ✅ ADDED
+  requiredVolunteers: ''
 };
 
 function PostNeedPage() {
-  const { addNeed } = useApp();
+  const { addNeed, currentUser } = useApp();
   const navigate = useNavigate();
 
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [coords, setCoords] = useState({ lat: null, lng: null });
 
-  const autoRef = useRef(null);
+  const autoRef = useRef(null); // ✅ FIXED HERE
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -44,7 +44,6 @@ function PostNeedPage() {
     }));
   };
 
-  // ✅ FIXED PLACE SELECT
   const handlePlaceSelect = () => {
     const place = autoRef.current.getPlace();
 
@@ -69,8 +68,6 @@ function PostNeedPage() {
     if (!form.title.trim()) e.title = 'Title required';
     if (!form.location.trim()) e.location = 'Location required';
     if (!form.qty || isNaN(form.qty)) e.qty = 'Invalid quantity';
-
-    // ✅ ADDED VALIDATION
     if (!form.requiredVolunteers || isNaN(form.requiredVolunteers)) {
       e.requiredVolunteers = 'Invalid number';
     }
@@ -87,13 +84,19 @@ function PostNeedPage() {
       return;
     }
 
+    // ✅ CRITICAL FIX
+    if (!currentUser || !currentUser.email) {
+      toast.error("User not loaded. Please login again.");
+      return;
+    }
+
     addNeed({
       ...form,
       qty: parseInt(form.qty),
-      requiredVolunteers: parseInt(form.requiredVolunteers), // ✅ ADDED
+      requiredVolunteers: parseInt(form.requiredVolunteers),
       lat: coords.lat,
       lng: coords.lng,
-      postedBy: 'You',
+      postedBy: currentUser.email
     });
 
     toast.success("📍 Need posted!");
@@ -111,44 +114,18 @@ function PostNeedPage() {
 
       <div className={styles.formCard}>
         <div className={styles.grid2}>
+          <Input label="Title" value={form.title} onChange={e => set('title', e.target.value)} error={errors.title} />
 
-          <Input label="Title"
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            error={errors.title}
-          />
+          <Select label="Type" value={form.type} onChange={e => set('type', e.target.value)} options={NEED_TYPES} />
 
-          <Select label="Type"
-            value={form.type}
-            onChange={e => set('type', e.target.value)}
-            options={NEED_TYPES}
-          />
+          <Select label="Urgency" value={form.urgency} onChange={e => set('urgency', e.target.value)} options={URGENCY_LEVELS} />
 
-          <Select label="Urgency"
-            value={form.urgency}
-            onChange={e => set('urgency', e.target.value)}
-            options={URGENCY_LEVELS}
-          />
+          <Input label="Quantity" value={form.qty} onChange={e => set('qty', e.target.value)} error={errors.qty} />
 
-          <Input label="Quantity"
-            value={form.qty}
-            onChange={e => set('qty', e.target.value)}
-            error={errors.qty}
-          />
+          <Input label="Required Volunteers" value={form.requiredVolunteers} onChange={e => set('requiredVolunteers', e.target.value)} error={errors.requiredVolunteers} />
 
-          {/* ✅ NEW FIELD */}
-          <Input label="Required Volunteers"
-            value={form.requiredVolunteers}
-            onChange={e => set('requiredVolunteers', e.target.value)}
-            error={errors.requiredVolunteers}
-          />
+          <Input label="Unit" value={form.unit} onChange={e => set('unit', e.target.value)} />
 
-          <Input label="Unit"
-            value={form.unit}
-            onChange={e => set('unit', e.target.value)}
-          />
-
-          {/* ✅ GOOGLE AUTOCOMPLETE */}
           <div style={{ gridColumn: '1 / -1' }}>
             <Autocomplete
               onLoad={(ref) => (autoRef.current = ref)}
@@ -162,7 +139,6 @@ function PostNeedPage() {
               />
             </Autocomplete>
           </div>
-
         </div>
 
         <div className={styles.formActions}>

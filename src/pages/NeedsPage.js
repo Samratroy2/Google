@@ -48,14 +48,12 @@ function NeedsPage() {
     matches: []
   });
 
-  // 🤖 AI match
   const handleMatch = (need) => {
     const availableUsers = users.filter(u => u.available !== false);
     const matches = aiMatchVolunteers(need, availableUsers);
     setMatchState({ open: true, need, matches });
   };
 
-  // ✅ MULTI ASSIGN (UNCHANGED)
   const handleAssign = (volunteers) => {
     const list = Array.isArray(volunteers) ? volunteers : [volunteers];
     const valid = list.filter(v => v.available !== false);
@@ -74,19 +72,43 @@ function NeedsPage() {
     toast.success(`✅ ${valid.length} volunteer(s) assigned`);
   };
 
-  // 🔥 FIXED: HANDLE MULTIPLE RATINGS
+  // ✅ FINAL FIXED LOGIC
   const handleStatusChange = (id, status, ratings = null) => {
 
-    if (status === "Completed" && completeTask) {
-      const need = needs.find(n => n.id === id);
+    const need = needs.find(n => n.id === id);
 
-      if (!ratings || ratings.length === 0) {
-        toast.error("Ratings missing");
-        return;
+    if (status === "Completed" && completeTask) {
+
+      const creatorEmail =
+        typeof need.postedBy === 'object'
+          ? need.postedBy.name
+          : need.postedBy;
+
+      const isCreator = currentUser?.email === creatorEmail;
+
+      // 👑 CREATOR → MUST GIVE RATING
+      if (isCreator) {
+        if (!ratings || ratings.length === 0) {
+          toast.error("⚠️ You must rate all volunteers");
+          return;
+        }
+
+        completeTask(need, ratings);
+        toast.success("✅ Task completed & volunteers rated ⭐");
       }
 
-      completeTask(need, ratings); // ✅ PASS ARRAY
-      toast.success("Task completed & all volunteers rated ⭐");
+      // 👤 VOLUNTEER → NO RATING
+      else {
+        completeTask(need, []);
+
+        // 📧 EMAIL TRIGGER (mock)
+        console.log(
+          `📧 Email sent to ${creatorEmail}: Please rate assigned volunteers`
+        );
+
+        toast.success("✅ Task completed. Creator notified for rating.");
+      }
+
       return;
     }
 
@@ -102,21 +124,22 @@ function NeedsPage() {
   };
 
   const canDelete = (need) => {
-    const ownerId =
+    const ownerName =
       typeof need.postedBy === 'object'
-        ? need.postedBy.uid
-        : null;
+        ? need.postedBy.name
+        : need.postedBy;
+
+    const userName = currentUser?.email;
 
     return (
       currentUser?.role === 'admin' ||
-      currentUser?.uid === ownerId
+      (userName && ownerName && userName === ownerName)
     );
   };
 
   return (
     <div>
 
-      {/* HEADER */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Active Needs</h1>
@@ -128,7 +151,6 @@ function NeedsPage() {
         </Button>
       </div>
 
-      {/* FILTERS */}
       <div className={styles.filters}>
         <input
           className={styles.search}
@@ -181,7 +203,6 @@ function NeedsPage() {
         </div>
       </div>
 
-      {/* EMPTY */}
       {filtered.length === 0 && (
         <div className={styles.empty}>
           No needs match your filters.
@@ -194,7 +215,6 @@ function NeedsPage() {
         </div>
       )}
 
-      {/* LIST */}
       <div>
         {filtered.map(need => (
           <NeedCard
@@ -203,11 +223,11 @@ function NeedsPage() {
             onMatch={handleMatch}
             onStatusChange={handleStatusChange}
             onDelete={canDelete(need) ? handleDelete : undefined}
+            currentUser={currentUser}
           />
         ))}
       </div>
 
-      {/* MODAL */}
       <MatchModal
         open={matchState.open}
         onClose={() => setMatchState(s => ({ ...s, open: false }))}
