@@ -23,6 +23,17 @@ http://localhost:3000
 
 ```
 smartaid/
+├── backend
+│   ├── controllers
+│   │   └── chatController.js
+│   ├── routes
+│   │   ├── api.js
+│   │   └── chat.js
+│   ├── services
+│   │   └── aiService.js
+│   ├── utils
+│   │   └── email.js
+│   └── .env
 ├── public/
 │   └── index.html
 └── src/

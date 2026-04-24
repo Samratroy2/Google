@@ -8,6 +8,9 @@ import React, {
 
 import { db, auth } from '../firebase';
 
+// 🆕 AI IMPORT (SAFE ADD)
+import { calculatePriorityScore } from '../utils/aiEngine';
+
 import {
   collection,
   onSnapshot,
@@ -108,14 +111,23 @@ export function AppProvider({ children }) {
     return () => unsub();
   }, []);
 
+  // 🔥 🆕 AI PRIORITY ADDED (NON-BREAKING)
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "needs"), (snap) => {
       setNeeds(
-        snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timeAgo: getTimeAgo(doc.data().createdAt)
-        }))
+        snap.docs.map(doc => {
+          const data = doc.data();
+
+          return {
+            id: doc.id,
+            ...data,
+
+            // 🧠 AI PRIORITY SCORE (SAFE ADD)
+            priorityScore: calculatePriorityScore(data),
+
+            timeAgo: getTimeAgo(data.createdAt)
+          };
+        })
       );
     });
     return () => unsub();
@@ -192,7 +204,7 @@ export function AppProvider({ children }) {
     try {
       await addDoc(collection(db, "needs"), {
         ...need,
-        requiredVolunteers: need.requiredVolunteers || 1, // ✅ ensure exists
+        requiredVolunteers: need.requiredVolunteers || 1,
         status: 'Pending',
         createdAt: serverTimestamp(),
         postedBy: {
@@ -227,7 +239,7 @@ export function AppProvider({ children }) {
     }
   }, [logActivity]);
 
-  // ✅ UPDATED ASSIGN LOGIC (MAIN CHANGE)
+  // ✅ ASSIGN LOGIC (UNCHANGED)
   const assignVolunteer = useCallback(async (needId, volunteers) => {
     try {
       const needRef = doc(db, "needs", needId);
@@ -236,7 +248,6 @@ export function AppProvider({ children }) {
 
       const required = needData.requiredVolunteers || 1;
 
-      // ✅ CORE LOGIC (YOUR REQUIREMENT)
       const assignedVolunteers = volunteers.slice(
         0,
         Math.min(volunteers.length, required)
@@ -250,7 +261,6 @@ export function AppProvider({ children }) {
         }))
       });
 
-      // mark all assigned as unavailable
       for (let v of assignedVolunteers) {
         await updateDoc(doc(db, "users", v.uid), {
           available: false
@@ -264,21 +274,13 @@ export function AppProvider({ children }) {
     }
   }, [logActivity]);
 
-  // ✅ COMPLETE
-  // ✅ ONLY showing updated part (completeTask FIX)
-
-
-
+  // ✅ COMPLETE TASK (UNCHANGED)
   const completeTask = useCallback(async (need, ratings) => {
 
-    // mark completed
     await updateDoc(doc(db, "needs", need.id), {
       status: "Completed"
     });
 
-    // =========================
-    // VOLUNTEER FLOW (no ratings)
-    // =========================
     if (!ratings || ratings.length === 0) {
       const volunteers = need.assignedTo || [];
 
@@ -293,9 +295,6 @@ export function AppProvider({ children }) {
       }
     }
 
-    // =========================
-    // OWNER FLOW (with ratings)
-    // =========================
     for (let r of ratings || []) {
 
       if (!r.uid) continue;
@@ -324,8 +323,7 @@ export function AppProvider({ children }) {
 
   }, [logActivity]);
 
-
-  // 👤 USER ACTIONS
+  // 👤 USER ACTIONS (UNCHANGED)
   const updateUser = async (uid, data) => {
     await updateDoc(doc(db, "users", uid), data);
     await logActivity("✏️ Updated profile");
@@ -373,7 +371,7 @@ export function AppProvider({ children }) {
       completeTask,
 
       user,
-      currentUser: user, 
+      currentUser: user,
       authLoading,
 
       login,
@@ -410,4 +408,3 @@ function getTimeAgo(ts) {
 
   return `${Math.floor(hrs / 24)}d ago`;
 }
-

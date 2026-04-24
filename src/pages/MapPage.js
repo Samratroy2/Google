@@ -27,10 +27,8 @@ function MapPage() {
   const [showNeeds, setShowNeeds] = useState(true);
   const [showVols, setShowVols] = useState(true);
 
-  // ✅ FIX: force map refresh when data changes
   const mapKey = `${needs.length}-${users.length}`;
 
-  // ✅ SAME LOGIC
   const volunteers = users.filter(u =>
     (u.role || '').toLowerCase() === "volunteer" &&
     (u.status || 'approved') !== "blocked" &&
@@ -75,7 +73,7 @@ function MapPage() {
 
       {/* MAP */}
       <GoogleMap
-        key={mapKey}   // 🔥 IMPORTANT FIX
+        key={mapKey}
         mapContainerStyle={containerStyle}
         center={center}
         zoom={12}
@@ -84,7 +82,7 @@ function MapPage() {
         {/* 🔴 NEEDS */}
         {showNeeds && validNeeds.map(n => (
           <OverlayView
-            key={`need-${n.id}`}   // 🔥 FIX
+            key={`need-${n.id}`}
             position={{ lat: n.lat, lng: n.lng }}
             mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
@@ -115,17 +113,21 @@ function MapPage() {
         {/* 🟢 VOLUNTEERS */}
         {showVols && volunteers.map(v => (
           <Marker
-            key={`vol-${v.uid}`}   // 🔥 FIX
+            key={`vol-${v.uid}`}
             position={{ lat: v.lat, lng: v.lng }}
-            icon={{
-              url: "https://cdn-icons-png.flaticon.com/512/1946/1946429.png",
-              scaledSize: new window.google.maps.Size(32, 32)
-            }}
+            icon={
+              window.google
+                ? {
+                    url: "https://cdn-icons-png.flaticon.com/512/1946/1946429.png",
+                    scaledSize: new window.google.maps.Size(32, 32)
+                  }
+                : undefined
+            }
             onClick={() =>
               setSelected({
                 ...v,
                 kind: 'vol',
-                name: v.username || v.email?.split('@')[0]
+                name: v.username || v.email?.split('@')[0] || "Volunteer"
               })
             }
           />
@@ -165,22 +167,14 @@ function MapPage() {
               {selected.kind === 'need' ? (
                 <>
                   <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
-                    {TYPE_ICONS[selected.type]} {selected.title}
+                    {TYPE_ICONS[selected.type] || '📦'} {selected.title}
                   </div>
 
                   <p>📍 {selected.location}</p>
 
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <Badge
-                      text={selected.urgency}
-                      color={URGENCY_COLORS[selected.urgency]}
-                      size="sm"
-                    />
-                    <Badge
-                      text={selected.status}
-                      color={STATUS_COLORS[selected.status]}
-                      size="sm"
-                    />
+                    <Badge text={selected.urgency} color={URGENCY_COLORS[selected.urgency]} size="sm" />
+                    <Badge text={selected.status} color={STATUS_COLORS[selected.status]} size="sm" />
                   </div>
 
                   <p>Qty: {selected.qty} {selected.unit}</p>
@@ -188,7 +182,7 @@ function MapPage() {
               ) : (
                 <>
                   <div style={{ fontWeight: 'bold' }}>
-                    {selected.name}
+                    {selected.name || "Volunteer"}
                   </div>
 
                   <p>{selected.skill || 'No skill'}</p>
@@ -214,6 +208,7 @@ function MapPage() {
       {/* LISTS */}
       <div className={styles.lists}>
 
+        {/* NEED LIST */}
         <div className={styles.listCard}>
           <h3>🔴 Active Needs ({validNeeds.length})</h3>
 
@@ -223,22 +218,19 @@ function MapPage() {
               className={styles.listItem}
               onClick={() => setSelected({ ...n, kind: 'need' })}
             >
-              <span>{TYPE_ICONS[n.type]}</span>
+              <span>{TYPE_ICONS[n.type] || '📦'}</span>
 
               <div className={styles.listInfo}>
                 <div className={styles.listName}>{n.title}</div>
                 <div className={styles.listMeta}>{n.location}</div>
               </div>
 
-              <Badge
-                text={n.urgency}
-                color={URGENCY_COLORS[n.urgency]}
-                size="sm"
-              />
+              <Badge text={n.urgency} color={URGENCY_COLORS[n.urgency]} size="sm" />
             </div>
           ))}
         </div>
 
+        {/* VOL LIST */}
         <div className={styles.listCard}>
           <h3>🟢 Volunteers ({volunteers.length})</h3>
 
@@ -250,7 +242,7 @@ function MapPage() {
                 setSelected({
                   ...v,
                   kind: 'vol',
-                  name: v.username || v.email?.split('@')[0]
+                  name: v.username || v.email?.split('@')[0] || "Volunteer"
                 })
               }
             >
@@ -266,7 +258,7 @@ function MapPage() {
 
               <div className={styles.listInfo}>
                 <div className={styles.listName}>
-                  {v.username || v.email?.split('@')[0]}
+                  {v.username || v.email?.split('@')[0] || "Volunteer"}
                 </div>
                 <div className={styles.listMeta}>
                   {v.skill || 'No skill'} · {v.location || 'Unknown'}

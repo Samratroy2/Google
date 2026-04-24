@@ -78,6 +78,9 @@ export function aiMatchVolunteers(need, users) {
 
       let score = 0;
 
+      // ✅ FIX: use directly (no import)
+      const priority = calculatePriorityScore(need);
+
       const validSkills = skillMap[needType] || [];
       const userSkill = (v.skill || '').toLowerCase();
 
@@ -101,6 +104,9 @@ export function aiMatchVolunteers(need, users) {
       // ⚡ URGENCY BONUS
       if (need.urgency === 'Critical') score += 5;
       else if (need.urgency === 'High') score += 3;
+
+      // 🆕 PRIORITY BOOST
+      score += priority * 0.2;
 
       return {
         ...v,
@@ -209,4 +215,58 @@ export function detectUrgencyScore(text) {
   if (/help|need/.test(t)) return 60;
 
   return 30;
+}
+
+
+// ── PRIORITY ENGINE ─────────────────────────
+
+
+// 🧠 GLOBAL PRIORITY SCORE
+export function calculatePriorityScore(need) {
+  let score = 0;
+
+  if (need.urgency === "Critical") score += 50;
+  else if (need.urgency === "High") score += 40;
+  else if (need.urgency === "Medium") score += 25;
+  else score += 10;
+
+  const qty = need.qty || 1;
+  score += Math.min(qty / 10, 1) * 20;
+
+  if (need.createdAt) {
+    const ts = need.createdAt?.toDate?.() || new Date(need.createdAt);
+    const ageHours = (Date.now() - ts.getTime()) / 3600000;
+    score += Math.min(ageHours / 24, 1) * 15;
+  }
+
+  if (need.status === "Pending") score += 10;
+
+  return Math.round(score);
+}
+
+
+// 🧠 AUTO RESOURCE ALLOCATION
+export function optimizeAssignments(needs, users) {
+  const sortedNeeds = [...needs]
+    .map(n => ({
+      ...n,
+      priorityScore: calculatePriorityScore(n)
+    }))
+    .sort((a, b) => b.priorityScore - a.priorityScore);
+
+  const assignments = [];
+
+  sortedNeeds.forEach(need => {
+    const matches = aiMatchVolunteers(need, users);
+
+    if (matches.length > 0) {
+      assignments.push({
+        needId: need.id,
+        volunteer: matches[0],
+        priority: need.priorityScore
+      });
+    }
+  });
+
+  return assignments;
 }
