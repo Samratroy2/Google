@@ -23,69 +23,58 @@ http://localhost:3000
 
 ```
 smartaid/
-├── backend
-│   ├── controllers
-│   │   └── chatController.js
-│   ├── routes
+├── backend/
+│   ├── controllers/
+│   │   ├── chatController.js      # Handles Gemini API for chatbot interaction 
+│   │   └── dataController.js      # NEW: Aggregates historical surveys/field notes [cite: 12, 35]
+│   ├── services/
+│   │   ├── aiService.js           # Google AI / Vertex AI logic [cite: 37, 40]
+│   │   └── geocodingService.js    # NEW: Converts addresses to lat/long for Heat Maps [cite: 39]
+│   ├── routes/
 │   │   ├── api.js
 │   │   └── chat.js
-│   ├── services
-│   │   └── aiService.js
-│   ├── utils
-│   │   └── email.js
-│   └── .env
+│   └── .env                       # API Keys for Gemini and Google Maps [cite: 38, 39]
 ├── public/
 │   └── index.html
-└── src/
-    ├── App.js                    # Main router
-    ├── index.js                  # Entry point
-    ├── context/
-    │   └── AppContext.js         # Global state (needs, volunteers, notifications)
-    ├── data/
-    │   └── mockData.js           # Mock data + constants
-    ├── hooks/
-    │   └── useFilters.js         # Reusable filter hook
-    ├── utils/
-    │   ├── aiEngine.js           # AI matching, NLP, urgency detection
-    │   └── helpers.js            # Utility functions
-    ├── styles/
-    │   └── global.css            # CSS variables + global styles
-    ├── components/
-    │   ├── Layout/
-    │   │   ├── Layout.js         # Shell layout
-    │   │   ├── Topbar.js         # Top navigation bar
-    │   │   └── Sidebar.js        # Side navigation
-    │   ├── UI/
-    │   │   ├── Badge.js          # Status/urgency badges
-    │   │   ├── Button.js         # Reusable button
-    │   │   ├── Input.js          # Form input
-    │   │   ├── Select.js         # Form select
-    │   │   ├── Modal.js          # Modal dialog
-    │   │   └── StatCard.js       # Dashboard stat card
-    │   ├── Needs/
-    │   │   ├── NeedCard.js       # Need item card
-    │   │   ├── NLPClassifier.js  # AI text classifier UI
-    │   │   └── MatchModal.js     # AI match results modal
-    │   └── Volunteers/
-    │       └── VolunteerCard.js  # Volunteer profile card
-    ├──pages/
-        ├── Dashboard.js          # Overview + charts
-        ├── Dashboard.module.css
-        ├── NeedsPage.js          # Browse & manage needs
-        ├── NeedsPage.module.css
-        ├── PostNeedPage.js       # Post new need form
-        ├── PostNeedPage.module.css
-        ├── VolunteersPage.js     # Volunteer directory
-        ├── VolunteersPage.module.css
-        ├── MapPage.js            # Live map view
-        ├── MapPage.module.css
-        ├── ChatbotPage.js        # AI chatbot assistant
-        ├── ChatbotPage.module.css
-        ├── AdminPage.js          # Admin control panel
-        └── AdminPage.module.css
-    └── firebase.js
-  └──.env
-
+├── src/
+│   ├── App.js
+│   ├── index.js
+│   ├── context/
+│   │   └── AppContext.js          # Stores unified "Source of Truth" data 
+│   ├── data/
+│   │   └── mockData.js            # Unstructured historical data samples [cite: 6]
+│   ├── hooks/
+│   │   ├── useFilters.js
+│   │   └── useHeatMap.js          # NEW: Custom hook for Google Maps layers [cite: 13]
+│   ├── utils/
+│   │   ├── aiEngine.js            # Smart Matching logic (Skill + Urgency + Location) [cite: 14, 34]
+│   │   ├── dataParser.js          # NEW: Uses Gemini to structure siloed NGO data [cite: 12, 38]
+│   │   └── helpers.js
+│   ├── components/
+│   │   ├── Layout/
+│   │   │   ├── Topbar.js
+│   │   │   └── Sidebar.js
+│   │   ├── UI/
+│   │   │   ├── Badge.js           # Urgency level indicators [cite: 33]
+│   │   │   ├── StatCard.js
+│   │   │   └── PriorityAlert.js   # NEW: Notifies users of "Immediate Attention" areas 
+│   │   ├── Needs/
+│   │   │   ├── NeedCard.js
+│   │   │   ├── NLPClassifier.js   # UI for Gemini-powered data structuring 
+│   │   │   └── MatchModal.js      # Displays Al-driven matching scores [cite: 14, 32]
+│   │   ├── Intelligence/          # NEW: Dedicated folder for "Smart" features [cite: 30]
+│   │   │   ├── HeatMapOverlay.js  # Google Maps visual intelligence 
+│   │   │   └── SkillMatrix.js     # Visualization of volunteer skill-to-need gaps [cite: 34]
+│   │   └── Volunteers/
+│   │       └── VolunteerCard.js
+│   ├── pages/
+│   │   ├── Dashboard.js           # Unified view of aggregated data [cite: 35]
+│   │   ├── MapPage.js             # Visualizing distribution & need hotspots [cite: 13]
+│   │   ├── PostNeedPage.js        # Form for new needs with auto-priority detection [cite: 33]
+│   │   ├── ChatbotPage.js         # Assistant for navigating scattered data [cite: 8]
+│   │   └── AdminPage.js           # Resource allocation control center [cite: 17]
+│   └── firebase.js
+└── .env
 
 ```
 

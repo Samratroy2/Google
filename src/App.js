@@ -2,9 +2,12 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoadScript } from '@react-google-maps/api';
 
-import { useApp } from './context/AppContext'; // ✅ ADD THIS
+import { useApp } from './context/AppContext';
 
 import Layout from './components/Layout/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Pages
 import Dashboard from './pages/Dashboard';
 import NeedsPage from './pages/NeedsPage';
 import VolunteersPage from './pages/VolunteersPage';
@@ -17,70 +20,73 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminVerifyPage from './pages/AdminVerifyPage';
 
-import ProtectedRoute from './components/ProtectedRoute';
+const LIBRARIES = ['places', 'visualization'];
 
-const LIBRARIES = ['places'];
+function AppRoutes() {
+  const { authLoading } = useApp();
 
-function App() {
-  const { authLoading } = useApp(); // ✅ GET LOADING STATE
-
-  // ✅ CRITICAL FIX: wait before rendering routes
   if (authLoading) {
-    return <div style={{ textAlign: "center", marginTop: "100px" }}>
-      Loading app...
-    </div>;
+    return (
+      <div style={{ textAlign: "center", marginTop: "100px" }}>
+        Loading app...
+      </div>
+    );
   }
 
+  return (
+    <Routes>
+
+      {/* PUBLIC */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/admin-verify" element={<AdminVerifyPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+
+      {/* PROTECTED */}
+      <Route path="/*" element={
+        <Layout>
+          <Routes>
+
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+
+            <Route path="/dashboard" element={
+              <ProtectedRoute><Dashboard /></ProtectedRoute>
+            } />
+
+            <Route path="/needs" element={
+              <ProtectedRoute><NeedsPage /></ProtectedRoute>
+            } />
+
+            <Route path="/needs/post" element={
+              <ProtectedRoute><PostNeedPage /></ProtectedRoute>
+            } />
+
+            <Route path="/volunteers" element={
+              <ProtectedRoute><VolunteersPage /></ProtectedRoute>
+            } />
+
+            <Route path="/map" element={
+              <ProtectedRoute><MapPage /></ProtectedRoute>
+            } />
+
+            <Route path="/chatbot" element={<ChatbotPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+
+          </Routes>
+        </Layout>
+      } />
+
+    </Routes>
+  );
+}
+
+export default function App() {
   return (
     <LoadScript
       googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
       libraries={LIBRARIES}
     >
-      <Routes>
-
-        {/* ✅ PUBLIC ROUTES */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/admin-verify" element={<AdminVerifyPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-
-        {/* ✅ PROTECTED APP */}
-        <Route path="/*" element={
-          <Layout>
-            <Routes>
-
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-
-              <Route path="/dashboard" element={
-                <ProtectedRoute><Dashboard /></ProtectedRoute>
-              } />
-
-              <Route path="/needs" element={
-                <ProtectedRoute><NeedsPage /></ProtectedRoute>
-              } />
-
-              <Route path="/needs/post" element={
-                <ProtectedRoute><PostNeedPage /></ProtectedRoute>
-              } />
-
-              <Route path="/volunteers" element={
-                <ProtectedRoute><VolunteersPage /></ProtectedRoute>
-              } />
-
-              <Route path="/map" element={
-                <ProtectedRoute><MapPage /></ProtectedRoute>
-              } />
-
-              <Route path="/chatbot" element={<ChatbotPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-
-            </Routes>
-          </Layout>
-        } />
-
-      </Routes>
+      <AppRoutes />
     </LoadScript>
   );
 }
-
-export default App;

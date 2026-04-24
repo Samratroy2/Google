@@ -51,3 +51,9 @@ export function scoreColor(score) {
   if (val >= 40) return '#f97316';    // orange
   return '#ef4444';                    // red
 }
+
+export function getMatchReason(v) {
+  if (v.matchScore > 85) return "Top-tier specialist nearby";
+  if (v.skillMatch === 'partial' && v.distance < 5) return "Generalist in immediate proximity";
+  return "Available backup resource";
+}
