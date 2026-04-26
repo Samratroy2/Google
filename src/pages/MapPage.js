@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { GoogleMap, Marker, OverlayView, HeatmapLayer } from '@react-google-maps/api';
 import Badge from '../components/UI/Badge';
@@ -24,16 +24,15 @@ const containerStyle = {
 const defaultCenter = { lat: 23.55, lng: 87.30 };
 
 const MAP_STYLES_DARK = [
-  { elementType: 'geometry',        stylers: [{ color: '#1a1a2e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec5fc' }] },
+  { elementType: 'geometry',           stylers: [{ color: '#1a1a2e' }] },
+  { elementType: 'labels.text.fill',   stylers: [{ color: '#8ec5fc' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-  { featureType: 'road',             elementType: 'geometry', stylers: [{ color: '#16213e' }] },
-  { featureType: 'road',             elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
-  { featureType: 'water',            elementType: 'geometry', stylers: [{ color: '#0f3460' }] },
-  { featureType: 'administrative',   elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
+  { featureType: 'road',               elementType: 'geometry',        stylers: [{ color: '#16213e' }] },
+  { featureType: 'road',               elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
+  { featureType: 'water',              elementType: 'geometry',        stylers: [{ color: '#0f3460' }] },
+  { featureType: 'administrative',     elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
 ];
 
-// ── View modes
 const VIEW_MODES = {
   STANDARD:  'standard',
   HEATMAP:   'heatmap',
@@ -41,19 +40,108 @@ const VIEW_MODES = {
   RISK:      'risk',
 };
 
-function MapPage() {
-  const { needs, users } = useApp();
+// ─────────────────────────────────────────────
+// Helper: group needs into proximity clusters
+// predictHighRiskAreas returns flat need-shaped objects;
+// the Clusters view needs area-shaped objects with a center.
+// ─────────────────────────────────────────────
+function buildClusters(needs, radiusKm = 2) {
+  const used = new Set();
+  const clusters = [];
 
-  const [selected,     setSelected]     = useState(null);
-  const [showNeeds,    setShowNeeds]    = useState(true);
-  const [showVols,     setShowVols]     = useState(true);
-  const [viewMode,     setViewMode]     = useState(VIEW_MODES.STANDARD);
-  const [filterType,   setFilterType]   = useState('All');
+  needs.forEach((need, i) => {
+    if (used.has(i)) return;
+
+    const group = [need];
+    used.add(i);
+
+    needs.forEach((other, j) => {
+      if (used.has(j)) return;
+      const dlat = (need.lat - other.lat) * 111;
+      const dlng = (need.lng - other.lng) * 111 * Math.cos((need.lat * Math.PI) / 180);
+      if (Math.sqrt(dlat * dlat + dlng * dlng) <= radiusKm) {
+        group.push(other);
+        used.add(j);
+      }
+    });
+
+    const center = {
+      lat: group.reduce((s, n) => s + n.lat, 0) / group.length,
+      lng: group.reduce((s, n) => s + n.lng, 0) / group.length,
+    };
+
+    const criticalCount = group.filter(n => n.urgency === 'Critical').length;
+    const highCount     = group.filter(n => n.urgency === 'High').length;
+    const severityScore = group.reduce((s, n) => s + calculatePriorityScore(n), 0);
+    const dominantType  = (() => {
+      const freq = {};
+      group.forEach(n => { freq[n.type || 'Other'] = (freq[n.type || 'Other'] || 0) + 1; });
+      return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Other';
+    })();
+
+    const riskLevel =
+      criticalCount > 0 || highCount > 1 ? 'High' :
+      highCount > 0 || group.length > 2   ? 'Medium' : 'Low';
+
+    clusters.push({
+      center,
+      needs: group,
+      dominantType,
+      severityScore,
+      riskLevel,
+      criticalCount,
+    });
+  });
+
+  return clusters;
+}
+
+// ─────────────────────────────────────────────
+// Helper: reshape raw predictHighRiskAreas output
+// Raw shape: { lat, lng, riskScore, type, urgency, id }
+// Map needs: { center, riskLevel, totalNeeds, criticalCount, needTypes, riskScore }
+// ─────────────────────────────────────────────
+function reshapeRiskAreas(rawAreas, allNeeds, radiusKm = 2) {
+  return rawAreas.map(raw => {
+    // Collect all needs near this hotspot
+    const nearby = allNeeds.filter(n => {
+      if (!n.lat || !n.lng) return false;
+      const dlat = (raw.lat - n.lat) * 111;
+      const dlng = (raw.lng - n.lng) * 111 * Math.cos((raw.lat * Math.PI) / 180);
+      return Math.sqrt(dlat * dlat + dlng * dlng) <= radiusKm;
+    });
+
+    const criticalCount = nearby.filter(n => n.urgency === 'Critical').length;
+    const needTypes     = [...new Set(nearby.map(n => n.type).filter(Boolean))];
+
+    const riskLevel =
+      raw.riskScore >= 60 || criticalCount > 0 ? 'High'   :
+      raw.riskScore >= 40                       ? 'Medium' : 'Low';
+
+    return {
+      center: { lat: raw.lat, lng: raw.lng },
+      riskLevel,
+      totalNeeds:   Math.max(nearby.length, 1),
+      criticalCount,
+      needTypes,
+      riskScore:    raw.riskScore,
+    };
+  });
+}
+
+function MapPage() {
+  const { needs = [], users = [] } = useApp();
+
+  const [selected,      setSelected]      = useState(null);
+  const [showNeeds,     setShowNeeds]     = useState(true);
+  const [showVols,      setShowVols]      = useState(true);
+  const [viewMode,      setViewMode]      = useState(VIEW_MODES.STANDARD);
+  const [filterType,    setFilterType]    = useState('All');
   const [filterUrgency, setFilterUrgency] = useState('All');
-  const [showStats,    setShowStats]    = useState(true);
+  const [showStats,     setShowStats]     = useState(true);
   const mapRef = useRef(null);
 
-  const mapKey = `${needs.length}-${users.length}`;
+  const mapKey = `${needs?.length || 0}-${users?.length || 0}`;
 
   const volunteers = users.filter(u =>
     (u.role === 'Volunteer' || u.role === 'volunteer') &&
@@ -63,29 +151,81 @@ function MapPage() {
 
   const allValidNeeds = needs.filter(n => n.lat && n.lng);
 
-  // Apply filters
   const validNeeds = allValidNeeds.filter(n => {
-    const typeMatch    = filterType === 'All'    || (n.type || '') === filterType;
-    const urgencyMatch = filterUrgency === 'All' || n.urgency === filterUrgency;
+    const typeMatch    = filterType    === 'All' || (n.type || '') === filterType;
+    const urgencyMatch = filterUrgency === 'All' || n.urgency      === filterUrgency;
     return typeMatch && urgencyMatch;
   });
 
-  // Heat map data
-  const heatmapData = generateHeatMapData(validNeeds);
+  // ── AI engine calls ──────────────────────────
+  const heatmapData  = generateHeatMapData(validNeeds);
+  const rawAnalytics = aggregateNeedsData(needs, users);
+  const rawRiskAreas = predictHighRiskAreas(validNeeds);
 
-  // Aggregated analytics
-  const analytics = aggregateNeedsData(needs, users);
+  // ── Safe analytics with defaults ─────────────
+  const safeAnalytics = useMemo(() => {
+    const clusters = buildClusters(validNeeds);
 
-  // Risk areas
-  const riskAreas = predictHighRiskAreas(validNeeds);
+    // Completion rate from needs statuses
+    const total     = needs.length;
+    const completed = needs.filter(n =>
+      n.status === 'Completed' || n.status === 'completed'
+    ).length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Map center
+    // 24-h trend: count needs created in last 24h vs prior 24h
+    const now  = Date.now();
+    const h24  = 24 * 60 * 60 * 1000;
+    const last = needs.filter(n => {
+      const t = n.createdAt?.toMillis?.() || n.createdAt || 0;
+      return now - t < h24;
+    }).length;
+    const prior = needs.filter(n => {
+      const t = n.createdAt?.toMillis?.() || n.createdAt || 0;
+      return now - t >= h24 && now - t < 2 * h24;
+    }).length;
+    const trendChange = last - prior;
+
+    // Coverage gaps: need types with no matching available volunteer skill
+    const volSkills = new Set(
+      users
+        .filter(u => (u.role === 'Volunteer' || u.role === 'volunteer') && u.available !== false)
+        .map(u => (u.skill || '').toLowerCase())
+    );
+    const pendingTypes = [
+      ...new Set(
+        needs
+          .filter(n => n.status === 'Pending' || n.status === 'pending')
+          .map(n => n.type)
+          .filter(Boolean)
+      ),
+    ];
+    const coverageGaps = pendingTypes.filter(
+      type => ![...volSkills].some(s => s.includes(type.toLowerCase()) || type.toLowerCase().includes(s))
+    );
+
+    return {
+      ...rawAnalytics,
+      areaSeverity:       clusters,
+      completionRate,
+      trend:              (last > 0 || prior > 0) ? { change: trendChange } : null,
+      coverageGaps,
+    };
+  }, [needs, users, validNeeds, rawAnalytics]);
+
+  // ── Shaped risk areas ─────────────────────────
+  const riskAreas = useMemo(
+    () => reshapeRiskAreas(rawRiskAreas, validNeeds),
+    [rawRiskAreas, validNeeds]
+  );
+
+  // ── Map center ────────────────────────────────
   const allPoints = [...validNeeds, ...volunteers];
   const center    = allPoints.length
     ? { lat: allPoints[0].lat, lng: allPoints[0].lng }
     : defaultCenter;
 
-  // Google Maps heatmap points
+  // ── Heatmap points ────────────────────────────
   const getHeatmapPoints = useCallback(() => {
     if (!window.google) return [];
     return heatmapData.map(p => ({
@@ -94,7 +234,7 @@ function MapPage() {
     }));
   }, [heatmapData]);
 
-  // Urgency color for pins
+  // ── Pin color by urgency ──────────────────────
   const urgencyPinColor = (urgency) => {
     if (urgency === 'Critical') return '#ef4444';
     if (urgency === 'High')     return '#f97316';
@@ -102,8 +242,7 @@ function MapPage() {
     return '#22c55e';
   };
 
-  // Unique types for filter
-  const allTypes    = ['All', ...new Set(allValidNeeds.map(n => n.type).filter(Boolean))];
+  const allTypes     = ['All', ...new Set(allValidNeeds.map(n => n.type).filter(Boolean))];
   const allUrgencies = ['All', 'Critical', 'High', 'Medium', 'Low'];
 
   return (
@@ -122,7 +261,6 @@ function MapPage() {
         </div>
 
         <div className={styles.headerRight}>
-          {/* View mode selector */}
           <div className={styles.viewModes}>
             {Object.entries({
               [VIEW_MODES.STANDARD]: '📍 Standard',
@@ -140,7 +278,6 @@ function MapPage() {
             ))}
           </div>
 
-          {/* Toggle buttons */}
           <div className={styles.toggles}>
             <button
               className={`${styles.toggle} ${showNeeds ? styles.toggleActive : ''}`}
@@ -165,12 +302,12 @@ function MapPage() {
       </div>
 
       {/* ── ANALYTICS BANNER ── */}
-      {analytics.criticalUnassigned > 0 && (
+      {safeAnalytics.criticalUnassigned > 0 && (
         <div className={styles.alertBanner}>
-          🚨 <strong>{analytics.criticalUnassigned}</strong> critical/high needs are unassigned —
+          🚨 <strong>{safeAnalytics.criticalUnassigned}</strong> critical/high needs are unassigned —
           immediate action required!
-          {analytics.coverageGaps.length > 0 && (
-            <span> · Skill gaps: {analytics.coverageGaps.join(', ')}</span>
+          {safeAnalytics.coverageGaps.length > 0 && (
+            <span> · Skill gaps: {safeAnalytics.coverageGaps.join(', ')}</span>
           )}
         </div>
       )}
@@ -211,10 +348,10 @@ function MapPage() {
           center={center}
           zoom={12}
           options={{
-            styles:           MAP_STYLES_DARK,
-            disableDefaultUI: false,
-            zoomControl:      true,
-            mapTypeControl:   true,
+            styles:            MAP_STYLES_DARK,
+            disableDefaultUI:  false,
+            zoomControl:       true,
+            mapTypeControl:    true,
             fullscreenControl: true,
           }}
           onLoad={map => { mapRef.current = map; }}
@@ -225,9 +362,9 @@ function MapPage() {
             <HeatmapLayer
               data={getHeatmapPoints()}
               options={{
-                radius:    30,
-                opacity:   0.8,
-                gradient:  [
+                radius:   30,
+                opacity:  0.8,
+                gradient: [
                   'rgba(0,255,0,0)',
                   'rgba(0,255,0,1)',
                   'rgba(255,255,0,1)',
@@ -238,116 +375,120 @@ function MapPage() {
             />
           )}
 
-          {/* 🔵 CLUSTER CIRCLES */}
-          {viewMode === VIEW_MODES.CLUSTERS && analytics.areaSeverity.map((area, i) => (
-            area.center?.lat && area.center?.lng && (
-              <OverlayView
-                key={`cluster-${i}`}
-                position={area.center}
-                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              >
-                <div
-                  onClick={() => setSelected({ ...area, kind: 'cluster' })}
-                  style={{
-                    width:           Math.max(32, Math.min(area.needs?.length * 8, 80)),
-                    height:          Math.max(32, Math.min(area.needs?.length * 8, 80)),
-                    borderRadius:    '50%',
-                    background:      area.riskLevel === 'High'   ? 'rgba(239,68,68,0.5)'   :
-                                     area.riskLevel === 'Medium' ? 'rgba(249,115,22,0.5)' :
-                                                                   'rgba(34,197,94,0.5)',
-                    border:          `2px solid ${
-                                       area.riskLevel === 'High'   ? '#ef4444' :
-                                       area.riskLevel === 'Medium' ? '#f97316' : '#22c55e'
-                                     }`,
-                    display:         'flex',
-                    alignItems:      'center',
-                    justifyContent:  'center',
-                    cursor:          'pointer',
-                    color:           '#fff',
-                    fontWeight:      'bold',
-                    fontSize:        12,
-                    backdropFilter:  'blur(4px)',
-                    transform:       'translate(-50%, -50%)',
-                    transition:      'transform 0.2s',
-                  }}
+          {/* 🔵 CLUSTER CIRCLES (built from proximity grouping) */}
+          {viewMode === VIEW_MODES.CLUSTERS &&
+            safeAnalytics.areaSeverity.map((area, i) =>
+              area.center?.lat && area.center?.lng ? (
+                <OverlayView
+                  key={`cluster-${i}`}
+                  position={area.center}
+                  mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
                 >
-                  {area.needs?.length}
-                </div>
-              </OverlayView>
-            )
-          ))}
+                  <div
+                    onClick={() => setSelected({ ...area, kind: 'cluster' })}
+                    style={{
+                      width:           Math.max(32, Math.min(area.needs.length * 8, 80)),
+                      height:          Math.max(32, Math.min(area.needs.length * 8, 80)),
+                      borderRadius:    '50%',
+                      background:
+                        area.riskLevel === 'High'   ? 'rgba(239,68,68,0.5)'   :
+                        area.riskLevel === 'Medium' ? 'rgba(249,115,22,0.5)' :
+                                                      'rgba(34,197,94,0.5)',
+                      border: `2px solid ${
+                        area.riskLevel === 'High'   ? '#ef4444' :
+                        area.riskLevel === 'Medium' ? '#f97316' : '#22c55e'
+                      }`,
+                      display:         'flex',
+                      alignItems:      'center',
+                      justifyContent:  'center',
+                      cursor:          'pointer',
+                      color:           '#fff',
+                      fontWeight:      'bold',
+                      fontSize:        12,
+                      backdropFilter:  'blur(4px)',
+                      transform:       'translate(-50%, -50%)',
+                    }}
+                  >
+                    {area.needs.length}
+                  </div>
+                </OverlayView>
+              ) : null
+            )}
 
           {/* ⚠️ RISK AREAS */}
-          {viewMode === VIEW_MODES.RISK && riskAreas.map((area, i) => (
-            area.center?.lat && area.center?.lng && (
-              <OverlayView
-                key={`risk-${i}`}
-                position={area.center}
-                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              >
-                <div
-                  onClick={() => setSelected({ ...area, kind: 'risk' })}
-                  style={{
-                    padding:        '6px 10px',
-                    background:     area.riskLevel === 'High' ? 'rgba(239,68,68,0.85)' :
-                                    area.riskLevel === 'Medium' ? 'rgba(249,115,22,0.85)' :
-                                                                  'rgba(34,197,94,0.85)',
-                    borderRadius:   8,
-                    color:          '#fff',
-                    fontSize:       11,
-                    fontWeight:     'bold',
-                    cursor:         'pointer',
-                    whiteSpace:     'nowrap',
-                    backdropFilter: 'blur(4px)',
-                    transform:      'translate(-50%, -100%)',
-                    boxShadow:      '0 4px 12px rgba(0,0,0,0.4)',
-                  }}
+          {viewMode === VIEW_MODES.RISK &&
+            riskAreas.map((area, i) =>
+              area.center?.lat && area.center?.lng ? (
+                <OverlayView
+                  key={`risk-${i}`}
+                  position={area.center}
+                  mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
                 >
-                  ⚠️ {area.riskLevel} Risk · {area.totalNeeds} needs
-                </div>
-              </OverlayView>
-            )
-          ))}
+                  <div
+                    onClick={() => setSelected({ ...area, kind: 'risk' })}
+                    style={{
+                      padding:        '6px 10px',
+                      background:
+                        area.riskLevel === 'High'   ? 'rgba(239,68,68,0.85)'   :
+                        area.riskLevel === 'Medium' ? 'rgba(249,115,22,0.85)' :
+                                                      'rgba(34,197,94,0.85)',
+                      borderRadius:   8,
+                      color:          '#fff',
+                      fontSize:       11,
+                      fontWeight:     'bold',
+                      cursor:         'pointer',
+                      whiteSpace:     'nowrap',
+                      backdropFilter: 'blur(4px)',
+                      transform:      'translate(-50%, -100%)',
+                      boxShadow:      '0 4px 12px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    ⚠️ {area.riskLevel} Risk · {area.totalNeeds} needs
+                  </div>
+                </OverlayView>
+              ) : null
+            )}
 
-          {/* 🔴 NEEDS (standard + clusters mode) */}
-          {showNeeds && (viewMode === VIEW_MODES.STANDARD) && validNeeds.map(n => {
-            const score = calculatePriorityScore(n);
-            const size  = 16 + Math.min(score / 10, 8); // size by priority
-            return (
-              <OverlayView
-                key={`need-${n.id}`}
-                position={{ lat: n.lat, lng: n.lng }}
-                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              >
-                <div
-                  onClick={() => setSelected({ ...n, kind: 'need' })}
-                  title={n.title}
-                  style={{
-                    width:       size,
-                    height:      size,
-                    borderRadius: '50%',
-                    background:  urgencyPinColor(n.urgency),
-                    position:    'relative',
-                    cursor:      'pointer',
-                    border:      '2px solid rgba(255,255,255,0.6)',
-                    transform:   'translate(-50%, -50%)',
-                    boxShadow:   `0 0 ${size}px ${urgencyPinColor(n.urgency)}80`,
-                  }}
+          {/* 🔴 NEEDS (standard mode) */}
+          {showNeeds && viewMode === VIEW_MODES.STANDARD &&
+            validNeeds.map(n => {
+              const score = calculatePriorityScore(n);
+              const size  = 16 + Math.min(score / 10, 8);
+              return (
+                <OverlayView
+                  key={`need-${n.id}`}
+                  position={{ lat: n.lat, lng: n.lng }}
+                  mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
                 >
-                  {n.urgency === 'Critical' && (
-                    <div style={{
-                      position:    'absolute',
-                      inset:       -4,
+                  <div
+                    onClick={() => setSelected({ ...n, kind: 'need' })}
+                    title={n.title}
+                    style={{
+                      width:        size,
+                      height:       size,
                       borderRadius: '50%',
-                      border:      '2px solid #ef4444',
-                      animation:   'pulse 1.5s infinite',
-                      opacity:     0.6,
-                    }} />
-                  )}
-                </div>
-              </OverlayView>
-            );
-          })}
+                      background:   urgencyPinColor(n.urgency),
+                      cursor:       'pointer',
+                      border:       '2px solid rgba(255,255,255,0.6)',
+                      transform:    'translate(-50%, -50%)',
+                      position:     'relative',
+                      boxShadow:    `0 0 ${size}px ${urgencyPinColor(n.urgency)}80`,
+                    }}
+                  >
+                    {n.urgency === 'Critical' && (
+                      <div style={{
+                        position:     'absolute',
+                        inset:        -4,
+                        borderRadius: '50%',
+                        border:       '2px solid #ef4444',
+                        animation:    'pulse 1.5s infinite',
+                        opacity:      0.6,
+                      }} />
+                    )}
+                  </div>
+                </OverlayView>
+              );
+            })}
 
           {/* 🟢 VOLUNTEERS */}
           {showVols && volunteers.map(v => (
@@ -379,15 +520,15 @@ function MapPage() {
               mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
             >
               <div style={{
-                minWidth:      240,
-                background:    'var(--card)',
-                color:         'var(--text)',
-                padding:       14,
-                borderRadius:  12,
-                border:        '1px solid var(--border)',
-                boxShadow:     '0 20px 40px rgba(0,0,0,0.5)',
-                position:      'relative',
-                transform:     'translate(-50%, -120%)',
+                minWidth:     240,
+                background:   'var(--card)',
+                color:        'var(--text)',
+                padding:      14,
+                borderRadius: 12,
+                border:       '1px solid var(--border)',
+                boxShadow:    '0 20px 40px rgba(0,0,0,0.5)',
+                position:     'relative',
+                transform:    'translate(-50%, -120%)',
               }}>
                 <div
                   onClick={() => setSelected(null)}
@@ -439,7 +580,10 @@ function MapPage() {
                     <p style={{ fontSize: 12 }}>Severity score: <strong>{selected.severityScore}</strong></p>
                     <Badge
                       text={`${selected.riskLevel} Risk`}
-                      color={selected.riskLevel === 'High' ? '#ef4444' : selected.riskLevel === 'Medium' ? '#f97316' : '#22c55e'}
+                      color={
+                        selected.riskLevel === 'High'   ? '#ef4444' :
+                        selected.riskLevel === 'Medium' ? '#f97316' : '#22c55e'
+                      }
                       size="sm"
                     />
                   </>
@@ -453,7 +597,58 @@ function MapPage() {
                     <p style={{ fontSize: 12 }}>Risk level: <strong>{selected.riskLevel}</strong></p>
                     <p style={{ fontSize: 12 }}>Total needs: <strong>{selected.totalNeeds}</strong></p>
                     <p style={{ fontSize: 12 }}>Critical count: <strong>{selected.criticalCount}</strong></p>
-                    <p style={{ fontSize: 12 }}>Need types: {selected.needTypes?.join(', ')}</p>
+                    <p style={{ fontSize: 12 }}>
+                      Need types: {selected.needTypes?.join(', ') || '—'}
+                    </p>
+                  </>
+                )}
+              </div>
+            </OverlayView>
+          )}
+
+          {/* Popup for cluster/risk (center coords stored in .center, not root) */}
+          {selected && !selected.lat && selected.center?.lat && (
+            <OverlayView
+              position={{ lat: selected.center.lat, lng: selected.center.lng }}
+              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+            >
+              <div style={{
+                minWidth:     240,
+                background:   'var(--card)',
+                color:        'var(--text)',
+                padding:      14,
+                borderRadius: 12,
+                border:       '1px solid var(--border)',
+                boxShadow:    '0 20px 40px rgba(0,0,0,0.5)',
+                position:     'relative',
+                transform:    'translate(-50%, -120%)',
+              }}>
+                <div
+                  onClick={() => setSelected(null)}
+                  style={{ position: 'absolute', top: 8, right: 10, cursor: 'pointer', fontSize: 14, opacity: 0.6 }}
+                >✕</div>
+
+                {selected.kind === 'cluster' && (
+                  <>
+                    <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 14 }}>🔵 Area Cluster</div>
+                    <p style={{ fontSize: 12 }}>Needs in area: <strong>{selected.needs?.length}</strong></p>
+                    <p style={{ fontSize: 12 }}>Dominant type: <strong>{selected.dominantType}</strong></p>
+                    <p style={{ fontSize: 12 }}>Severity score: <strong>{selected.severityScore}</strong></p>
+                    <Badge
+                      text={`${selected.riskLevel} Risk`}
+                      color={selected.riskLevel === 'High' ? '#ef4444' : selected.riskLevel === 'Medium' ? '#f97316' : '#22c55e'}
+                      size="sm"
+                    />
+                  </>
+                )}
+
+                {selected.kind === 'risk' && (
+                  <>
+                    <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 14 }}>⚠️ Risk Zone</div>
+                    <p style={{ fontSize: 12 }}>Risk level: <strong>{selected.riskLevel}</strong></p>
+                    <p style={{ fontSize: 12 }}>Total needs: <strong>{selected.totalNeeds}</strong></p>
+                    <p style={{ fontSize: 12 }}>Critical count: <strong>{selected.criticalCount}</strong></p>
+                    <p style={{ fontSize: 12 }}>Need types: {selected.needTypes?.join(', ') || '—'}</p>
                   </>
                 )}
               </div>
@@ -472,9 +667,17 @@ function MapPage() {
             </>
           )}
           {viewMode === VIEW_MODES.HEATMAP && (
-            <>
-              <div className={styles.legendItem}><span style={{ background: 'linear-gradient(to right,#00ff00,#ffff00,#ff0000)', width: 60, height: 8, borderRadius: 4, display: 'inline-block', marginRight: 6 }} /> Low → High intensity</div>
-            </>
+            <div className={styles.legendItem}>
+              <span style={{
+                background:    'linear-gradient(to right,#00ff00,#ffff00,#ff0000)',
+                width:         60,
+                height:        8,
+                borderRadius:  4,
+                display:       'inline-block',
+                marginRight:   6,
+              }} />
+              Low → High intensity
+            </div>
           )}
           {(viewMode === VIEW_MODES.CLUSTERS || viewMode === VIEW_MODES.RISK) && (
             <>
@@ -495,35 +698,35 @@ function MapPage() {
           </div>
           <div className={styles.statBox}>
             <div className={styles.statVal} style={{ color: '#ef4444' }}>
-              {analytics.criticalUnassigned}
+              {safeAnalytics.criticalUnassigned}
             </div>
             <div className={styles.statLabel}>Critical Unassigned</div>
           </div>
           <div className={styles.statBox}>
             <div className={styles.statVal} style={{ color: '#22c55e' }}>
-              {analytics.availableVolunteers}
+              {safeAnalytics.availableVolunteers}
             </div>
             <div className={styles.statLabel}>Available Volunteers</div>
           </div>
           <div className={styles.statBox}>
             <div className={styles.statVal} style={{ color: '#6366f1' }}>
-              {analytics.areaSeverity.length}
+              {safeAnalytics.areaSeverity.length}
             </div>
             <div className={styles.statLabel}>Area Clusters</div>
           </div>
           <div className={styles.statBox}>
             <div className={styles.statVal} style={{ color: '#f59e0b' }}>
-              {analytics.completionRate}%
+              {safeAnalytics.completionRate}%
             </div>
             <div className={styles.statLabel}>Completion Rate</div>
           </div>
-          {analytics.trend && (
+          {safeAnalytics.trend && (
             <div className={styles.statBox}>
               <div
                 className={styles.statVal}
-                style={{ color: analytics.trend.change > 0 ? '#ef4444' : '#22c55e' }}
+                style={{ color: safeAnalytics.trend.change > 0 ? '#ef4444' : '#22c55e' }}
               >
-                {analytics.trend.change > 0 ? '↑' : '↓'} {Math.abs(analytics.trend.change)}
+                {safeAnalytics.trend.change > 0 ? '↑' : '↓'} {Math.abs(safeAnalytics.trend.change)}
               </div>
               <div className={styles.statLabel}>24h Trend</div>
             </div>
@@ -532,14 +735,14 @@ function MapPage() {
       )}
 
       {/* ── COVERAGE GAPS ── */}
-      {analytics.coverageGaps?.length > 0 && (
+      {safeAnalytics.coverageGaps.length > 0 && (
         <div className={styles.gapsCard}>
           <h3 className={styles.gapsTitle}>⚠️ Volunteer Skill Gaps Detected</h3>
           <p className={styles.gapsSub}>
             These need types have pending requests but no matching volunteers:
           </p>
           <div className={styles.gapsList}>
-            {analytics.coverageGaps.map(gap => (
+            {safeAnalytics.coverageGaps.map(gap => (
               <div key={gap} className={styles.gapChip}>
                 {TYPE_ICONS[gap] || '📦'} {gap}
               </div>
@@ -559,6 +762,7 @@ function MapPage() {
           </h3>
           <div className={styles.listScroll}>
             {validNeeds
+              .slice()
               .sort((a, b) => calculatePriorityScore(b) - calculatePriorityScore(a))
               .map(n => (
                 <div
@@ -637,15 +841,20 @@ function MapPage() {
                 className={styles.listItem}
                 onClick={() => setSelected({ ...area, kind: 'risk' })}
               >
-                <div className={styles.riskBadge} style={{
-                  background: area.riskLevel === 'High' ? '#ef444430' : area.riskLevel === 'Medium' ? '#f9731630' : '#22c55e30',
-                  color:      area.riskLevel === 'High' ? '#ef4444' : area.riskLevel === 'Medium' ? '#f97316' : '#22c55e',
-                  padding:    '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                <div style={{
+                  background:   area.riskLevel === 'High'   ? '#ef444430' :
+                                area.riskLevel === 'Medium' ? '#f9731630' : '#22c55e30',
+                  color:        area.riskLevel === 'High'   ? '#ef4444'   :
+                                area.riskLevel === 'Medium' ? '#f97316'   : '#22c55e',
+                  padding:      '4px 8px',
+                  borderRadius: 6,
+                  fontSize:     11,
+                  fontWeight:   700,
                 }}>
                   {area.riskLevel}
                 </div>
                 <div className={styles.listInfo}>
-                  <div className={styles.listName}>{area.needTypes?.slice(0, 2).join(', ')}</div>
+                  <div className={styles.listName}>{area.needTypes?.slice(0, 2).join(', ') || '—'}</div>
                   <div className={styles.listMeta}>
                     {area.totalNeeds} needs · {area.criticalCount} critical
                   </div>
