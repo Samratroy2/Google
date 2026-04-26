@@ -1,37 +1,45 @@
-// ── AI ENGINE (ENHANCED — capacity-aware allocation) ─────────
+// ─────────────────────────────────────────────
+// 🧠 SMARTAID AI ENGINE (PRODUCTION READY)
+// ─────────────────────────────────────────────
 
-// ══════════════════════════════════════════════════════════════
-// 📍 HAVERSINE DISTANCE
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
+// 📍 DISTANCE (HAVERSINE)
+// ═════════════════════════════════════════════
 export function getDistanceKm(lat1, lng1, lat2, lng2) {
   if ([lat1, lng1, lat2, lng2].some(v => v == null)) return 999;
+
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
+
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * Math.PI / 180) *
     Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLng / 2) ** 2;
+
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
 // 🧠 TYPE NORMALIZATION
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
 export const normalizeType = (t) => {
   if (!t) return 'Other';
+
   t = t.toLowerCase();
+
   if (t.includes('doctor') || t.includes('medical')) return 'Medical';
   if (t.includes('food')) return 'Food';
   if (t.includes('water')) return 'Water';
   if (t.includes('teach') || t.includes('education')) return 'Education';
+
   return 'Other';
 };
 
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
 // 🎯 SKILL MAP
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
 export const skillMap = {
   Medical: ['doctor', 'nurse'],
   Food: ['cook', 'delivery'],
@@ -39,22 +47,24 @@ export const skillMap = {
   Education: ['teacher']
 };
 
-// ══════════════════════════════════════════════════════════════
-// 🧠 PRIORITY SCORE
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
+// ⚡ PRIORITY SCORE
+// ═════════════════════════════════════════════
 export function calculatePriorityScore(need) {
   let score = 0;
+
   if (need.urgency === 'Critical') score += 50;
   else if (need.urgency === 'High') score += 40;
   else score += 20;
 
   score += Math.min((need.qty || 1) / 10, 1) * 20;
+
   return Math.round(score);
 }
 
-// ══════════════════════════════════════════════════════════════
-// 🤖 MATCH ENGINE (UPDATED — capacity aware)
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
+// 🤖 MATCH ENGINE (SMART SCORING)
+// ═════════════════════════════════════════════
 export function aiMatchVolunteers(need, users) {
   const needType = normalizeType(need.type);
   const validSkills = (skillMap[needType] || []).map(s => s.toLowerCase());
@@ -63,7 +73,7 @@ export function aiMatchVolunteers(need, users) {
     .filter(u =>
       (u.role === 'Volunteer' || u.role === 'volunteer') &&
       u.available !== false &&
-      (u.assignedCount || 0) < (u.maxTasks || 1) // ✅ CAPACITY FILTER
+      (u.assignedCount || 0) < (u.maxTasks || 1)
     )
     .map(v => {
       const dist = getDistanceKm(need.lat, need.lng, v.lat, v.lng);
@@ -71,17 +81,19 @@ export function aiMatchVolunteers(need, users) {
 
       let score = 0;
 
-      // skill
+      // 🎯 Skill
       if (validSkills.includes(skill)) score += 70;
       else score += 30;
 
-      // distance
+      // 📍 Distance
       score += Math.max(0, 1 - dist / 30) * 20;
 
-      // workload penalty
+      // ⚖️ Load + fatigue penalty
       const load = v.assignedCount || 0;
       const capacity = v.maxTasks || 1;
-      score -= (load / capacity) * 30;
+
+      score -= (load / capacity) * 40;
+      score -= load * 10;
 
       return {
         ...v,
@@ -92,10 +104,11 @@ export function aiMatchVolunteers(need, users) {
     .sort((a, b) => b.matchScore - a.matchScore);
 }
 
-// ══════════════════════════════════════════════════════════════
-// 🧠 GLOBAL ASSIGNMENT ENGINE (FIXED)
-// ══════════════════════════════════════════════════════════════
-export function optimizeAssignments(needs, users) {
+// ═════════════════════════════════════════════
+// 🧠 GLOBAL ASSIGNMENT ENGINE (NO DUPLICATION)
+// ═════════════════════════════════════════════
+export function optimizeAssignments(needs, users, strictSingleTask = true) {
+
   const sortedNeeds = [...needs]
     .map(n => ({ ...n, priority: calculatePriorityScore(n) }))
     .sort((a, b) => b.priority - a.priority);
@@ -103,24 +116,49 @@ export function optimizeAssignments(needs, users) {
   const assignments = [];
   const loadMap = new Map();
 
+  // initialize loads
   users.forEach(u => {
     loadMap.set(u.id, u.assignedCount || 0);
   });
 
   sortedNeeds.forEach(need => {
+
     const required = need.requiredVolunteers || 1;
 
-    const matches = aiMatchVolunteers(need, users);
+    // 🔥 dynamic users (IMPORTANT FIX)
+    const dynamicUsers = users.map(u => ({
+      ...u,
+      assignedCount: loadMap.get(u.id) || 0
+    }));
+
+    const matches = aiMatchVolunteers(need, dynamicUsers);
 
     const selected = [];
 
     for (let v of matches) {
+
       const current = loadMap.get(v.id) || 0;
       const max = v.maxTasks || 1;
 
-      if (current < max) {
-        selected.push(v);
-        loadMap.set(v.id, current + 1);
+      // 🔒 STRICT MODE → only 1 task EVER
+      if (strictSingleTask) {
+        if (current === 0) {
+          selected.push(v);
+          loadMap.set(v.id, 1);
+        }
+      } else {
+        // 🧠 Smart mode
+        if (need.priority > 60) {
+          if (current === 0) {
+            selected.push(v);
+            loadMap.set(v.id, current + 1);
+          }
+        } else {
+          if (current < max) {
+            selected.push(v);
+            loadMap.set(v.id, current + 1);
+          }
+        }
       }
 
       if (selected.length >= required) break;
@@ -137,10 +175,9 @@ export function optimizeAssignments(needs, users) {
   return assignments;
 }
 
-
-// ══════════════════════════════════════════════════════════════
-// 🗺️ HEAT MAP DATA
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
+// 🗺️ HEAT MAP
+// ═════════════════════════════════════════════
 export function generateHeatMapData(needs) {
   return needs
     .filter(n => n.lat && n.lng)
@@ -154,10 +191,9 @@ export function generateHeatMapData(needs) {
     }));
 }
 
-
-// ══════════════════════════════════════════════════════════════
-// 📊 DATA AGGREGATION
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
+// 📊 AGGREGATION
+// ═════════════════════════════════════════════
 export function aggregateNeedsData(needs = [], users = []) {
 
   const byType = {};
@@ -189,51 +225,20 @@ export function aggregateNeedsData(needs = [], users = []) {
     }
   });
 
-  // ✅ AREA CLUSTERS (simple version)
-  const areaSeverity = needs
-    .filter(n => n.lat && n.lng)
-    .map(n => ({
-      center: { lat: n.lat, lng: n.lng },
-      needs: [n],
-      severityScore: calculatePriorityScore(n),
-      dominantType: normalizeType(n.type),
-      riskLevel:
-        calculatePriorityScore(n) > 70
-          ? 'High'
-          : calculatePriorityScore(n) > 40
-          ? 'Medium'
-          : 'Low'
-    }));
-
-  // ✅ COVERAGE GAPS
   const volunteers = users.filter(u =>
     u.role === 'Volunteer' || u.role === 'volunteer'
   );
 
-  const coverageGaps = Object.keys(byType).filter(type => {
-    const skills = (skillMap[type] || []).map(s => s.toLowerCase());
-
-    const hasVolunteer = volunteers.some(v =>
-      skills.includes((v.skill || '').toLowerCase())
-    );
-
-    return !hasVolunteer && byType[type].pending > 0;
-  });
-
   return {
     byType,
-    areaSeverity,
-    coverageGaps,
     criticalUnassigned,
-    completionRate: 0,
-    availableVolunteers: volunteers.filter(v => v.available !== false).length,
-    trend: { change: 0 }
+    availableVolunteers: volunteers.filter(v => v.available !== false).length
   };
 }
 
-// ══════════════════════════════════════════════════════════════
-// 📈 RISK PREDICTION (simple version)
-// ══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════
+// 📈 RISK PREDICTION
+// ═════════════════════════════════════════════
 export function predictHighRiskAreas(needs) {
   return needs
     .filter(n => n.lat && n.lng)
@@ -241,7 +246,9 @@ export function predictHighRiskAreas(needs) {
       lat: n.lat,
       lng: n.lng,
       riskScore: calculatePriorityScore(n),
-      type: normalizeType(n.type)
+      type: normalizeType(n.type),
+      urgency: n.urgency,
+      id: n.id
     }))
     .sort((a, b) => b.riskScore - a.riskScore)
     .slice(0, 10);

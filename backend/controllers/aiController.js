@@ -11,9 +11,8 @@ export const parseNeed = async (req, res) => {
     const result = await parseWithGemini(text);
 
     res.json(result);
-
   } catch (err) {
-    console.error("❌ Controller Error:", err.message);
+    console.error("❌ AI Controller Error:", err.message);
     res.status(500).json({ error: "AI parsing failed" });
   }
 };

@@ -1,17 +1,17 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import express from "express";
 import cors from "cors";
-import aiRoutes from "./routes/ai.js";
+import dotenv from "dotenv";
+import apiRoutes from "./routes/api.js";
 
+dotenv.config();
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.use("/api/ai", aiRoutes);
+// ✅ mount all routes under /api
+app.use("/api", apiRoutes);
 
 app.listen(5000, () => {
-  console.log("🚀 Server running on http://localhost:5000");
+  console.log("🚀 Server running on port 5000");
 });

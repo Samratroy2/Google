@@ -1,4 +1,4 @@
-
+import { askAI } from "../services/aiService.js";
 
 export const handleChat = async (req, res) => {
   try {
@@ -8,7 +8,7 @@ export const handleChat = async (req, res) => {
 
     res.json({ reply });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Chat Controller Error:", err);
     res.status(500).json({ error: "AI failed" });
   }
 };

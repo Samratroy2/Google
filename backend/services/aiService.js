@@ -1,21 +1,75 @@
-import dotenv from "dotenv";
-dotenv.config();
+// ================= SIMPLE CACHE =================
+const cache = new Map();
 
-import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY
-});
+// ================= CHAT AI =================
+export async function askAI(message, needs = [], users = []) {
+  try {
+    // ⚡ CACHE (instant response if repeated)
+    if (cache.has(message)) return cache.get(message);
 
-// ================= MAIN FUNCTION =================
+    // ⚡ LIMIT DATA (speed boost)
+    const trimmedNeeds = needs.slice(0, 5);
+    const trimmedUsers = users.slice(0, 5);
+
+    const prompt = `
+You are SmartAid AI.
+
+User: "${message}"
+
+Needs: ${JSON.stringify(trimmedNeeds)}
+Users: ${JSON.stringify(trimmedUsers)}
+
+Reply in 1-2 short helpful sentences.
+`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No response from AI";
+
+    cache.set(message, reply);
+
+    return reply;
+
+  } catch (err) {
+    console.error("AI Chat Error:", err);
+    return "⚠️ AI is currently unavailable.";
+  }
+}
+
+
+// ================= PARSER =================
 export async function parseWithGemini(text) {
   try {
+    // ⚡ FAST PATH (regex first → no API call)
+    if (/doctor|teacher|food|water/i.test(text)) {
+      return fallbackParser(text);
+    }
+
     const prompt = `
-Extract ALL needs from the text.
+Extract structured needs from the text.
 
-Return ONLY JSON ARRAY. No explanation.
+Return ONLY JSON ARRAY like:
 
-Example:
 [
   {
     "title": "Need 2 doctors",
@@ -29,44 +83,68 @@ Example:
 ]
 
 Rules:
-- Split multiple needs (doctor, teacher etc.)
-- qty applies per role
-- urgency: emergency → Critical, urgent → High
-- Clean location (no words like urgently)
+- doctor → Medical
+- teacher → Education
+- food → Food
+- water → Water
+- Extract quantity (default = 1)
+- urgency:
+   emergency → Critical
+   urgent/immediately/asap → High
+- Clean location
 - requiredVolunteers:
    Medical/Education → qty
-   Water → qty/20
    Food → qty/30
+   Water → qty/20
+- Split multiple needs
 
 Text:
 "${text}"
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
+      }
+    );
 
-    let output = response.text;
+    const data = await res.json();
 
-    // CLEAN RESPONSE
-    output = output.replace(/```json/g, "").replace(/```/g, "").trim();
+    let output =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+
+    // ✅ CLEAN RESPONSE
+    output = output
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
     const start = output.indexOf("[");
     const end = output.lastIndexOf("]");
 
-    const jsonString = output.slice(start, end + 1);
+    output = output.slice(start, end + 1);
 
-    return JSON.parse(jsonString);
+    return JSON.parse(output);
 
   } catch (err) {
-    console.log("⚠️ Gemini failed → using fallback");
-
+    console.log("⚠️ Gemini failed → fallback");
     return fallbackParser(text);
   }
 }
 
-// ================= FALLBACK =================
+
+// ================= FALLBACK PARSER =================
 function fallbackParser(text) {
   const needs = [];
 
@@ -74,65 +152,65 @@ function fallbackParser(text) {
   const location = cleanLocation(extractLocation(text));
 
   // 👨‍⚕️ DOCTOR
-  const doctorMatch = text.match(/(\d+)\s*doctor/i);
+  const doctorMatch = text.match(/(\d+)?\s*doctor/i);
   if (doctorMatch) {
-    const qty = parseInt(doctorMatch[1]);
+    const qty = parseInt(doctorMatch[1] || 1);
 
     needs.push({
-      title: "Need doctors",
+      title: `Need ${qty} doctor${qty > 1 ? "s" : ""}`,
       type: "Medical",
       qty,
       urgency,
       location,
-      requiredVolunteers: getVolunteers("Medical", qty),
+      requiredVolunteers: qty,
       description: text
     });
   }
 
   // 👩‍🏫 TEACHER
-  const teacherMatch = text.match(/(\d+)\s*teacher/i);
+  const teacherMatch = text.match(/(\d+)?\s*teacher/i);
   if (teacherMatch) {
-    const qty = parseInt(teacherMatch[1]);
+    const qty = parseInt(teacherMatch[1] || 1);
 
     needs.push({
-      title: "Need teachers",
+      title: `Need ${qty} teacher${qty > 1 ? "s" : ""}`,
       type: "Education",
       qty,
       urgency,
       location,
-      requiredVolunteers: getVolunteers("Education", qty),
-      description: text
-    });
-  }
-
-  // 🚰 WATER
-  const waterMatch = text.match(/(\d+)\s*(water|bottle)/i);
-  if (waterMatch) {
-    const qty = parseInt(waterMatch[1]);
-
-    needs.push({
-      title: "Need water bottles",
-      type: "Water",
-      qty,
-      urgency,
-      location,
-      requiredVolunteers: getVolunteers("Water", qty),
+      requiredVolunteers: qty,
       description: text
     });
   }
 
   // 🍱 FOOD
-  const foodMatch = text.match(/(\d+)\s*(food|meal|packet)/i);
+  const foodMatch = text.match(/(\d+)?\s*(food|meal|packet)/i);
   if (foodMatch) {
-    const qty = parseInt(foodMatch[1]);
+    const qty = parseInt(foodMatch[1] || 10);
 
     needs.push({
-      title: "Need food",
+      title: `Need food`,
       type: "Food",
       qty,
       urgency,
       location,
-      requiredVolunteers: getVolunteers("Food", qty),
+      requiredVolunteers: Math.ceil(qty / 30),
+      description: text
+    });
+  }
+
+  // 🚰 WATER
+  const waterMatch = text.match(/(\d+)?\s*(water|bottle)/i);
+  if (waterMatch) {
+    const qty = parseInt(waterMatch[1] || 10);
+
+    needs.push({
+      title: `Need water`,
+      type: "Water",
+      qty,
+      urgency,
+      location,
+      requiredVolunteers: Math.ceil(qty / 20),
       description: text
     });
   }
@@ -153,24 +231,8 @@ function fallbackParser(text) {
   return needs;
 }
 
+
 // ================= HELPERS =================
-function getVolunteers(type, qty) {
-  switch (type) {
-    case "Medical":
-    case "Education":
-      return qty;
-
-    case "Water":
-      return Math.ceil(qty / 20);
-
-    case "Food":
-      return Math.ceil(qty / 30);
-
-    default:
-      return Math.max(1, Math.ceil(qty / 10));
-  }
-}
-
 function getUrgency(text) {
   if (/emergency/i.test(text)) return "Critical";
   if (/urgent|immediately|asap/i.test(text)) return "High";
