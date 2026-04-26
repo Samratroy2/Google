@@ -25,55 +25,59 @@ http://localhost:3000
 smartaid/
 ├── backend/
 │   ├── controllers/
-│   │   ├── chatController.js      # Handles Gemini API for chatbot interaction 
-│   │   └── dataController.js      # NEW: Aggregates historical surveys/field notes [cite: 12, 35]
+│   │   ├── aiController.js         # 🔥 NEW: central AI endpoint (parse, classify, match)
+│   │   ├── chatController.js
+│   │   └── dataController.js
+│   │
 │   ├── services/
-│   │   ├── aiService.js           # Google AI / Vertex AI logic [cite: 37, 40]
-│   │   └── geocodingService.js    # NEW: Converts addresses to lat/long for Heat Maps [cite: 39]
+│   │   ├── aiService.js            # Gemini / LLM logic
+│   │   ├── parserService.js        # 🔥 NEW: unstructured → structured needs
+│   │   ├── geocodingService.js
+│   │   └── matchingService.js      # 🔥 NEW: volunteer matching engine
+│   │
 │   ├── routes/
+│   │   ├── ai.js                   # 🔥 NEW: /parse-need, /match-volunteers
 │   │   ├── api.js
 │   │   └── chat.js
-│   └── .env                       # API Keys for Gemini and Google Maps [cite: 38, 39]
-├── public/
-│   └── index.html
+│   │
+│   └── .env
+│
 ├── src/
-│   ├── App.js
-│   ├── index.js
 │   ├── context/
-│   │   └── AppContext.js          # Stores unified "Source of Truth" data 
-│   ├── data/
-│   │   └── mockData.js            # Unstructured historical data samples [cite: 6]
-│   ├── hooks/
-│   │   ├── useFilters.js
-│   │   └── useHeatMap.js          # NEW: Custom hook for Google Maps layers [cite: 13]
+│   │   └── AppContext.js           # Source of truth
+│   │
 │   ├── utils/
-│   │   ├── aiEngine.js            # Smart Matching logic (Skill + Urgency + Location) [cite: 14, 34]
-│   │   ├── dataParser.js          # NEW: Uses Gemini to structure siloed NGO data [cite: 12, 38]
+│   │   ├── aiEngine.js             # Keep ONLY scoring logic here
+│   │   ├── aiParser.js             # 🔥 NEW: frontend fallback parser
+│   │   ├── apiClient.js            # 🔥 NEW: calls backend AI
 │   │   └── helpers.js
+│   │
 │   ├── components/
-│   │   ├── Layout/
-│   │   │   ├── Topbar.js
-│   │   │   └── Sidebar.js
-│   │   ├── UI/
-│   │   │   ├── Badge.js           # Urgency level indicators [cite: 33]
-│   │   │   ├── StatCard.js
-│   │   │   └── PriorityAlert.js   # NEW: Notifies users of "Immediate Attention" areas 
+│   │   ├── Intelligence/
+│   │   │   ├── AIInputBox.js       # 🔥 replaces forms
+│   │   │   ├── ParsedPreview.js    # 🔥 AI output preview
+│   │   │   ├── HeatMapOverlay.js
+│   │   │   └── SkillMatrix.js
+│   │   │
 │   │   ├── Needs/
 │   │   │   ├── NeedCard.js
-│   │   │   ├── NLPClassifier.js   # UI for Gemini-powered data structuring 
-│   │   │   └── MatchModal.js      # Displays Al-driven matching scores [cite: 14, 32]
-│   │   ├── Intelligence/          # NEW: Dedicated folder for "Smart" features [cite: 30]
-│   │   │   ├── HeatMapOverlay.js  # Google Maps visual intelligence 
-│   │   │   └── SkillMatrix.js     # Visualization of volunteer skill-to-need gaps [cite: 34]
-│   │   └── Volunteers/
-│   │       └── VolunteerCard.js
+│   │   │   └── MatchModal.js
+│   │   │
+│   │   └── UI/
+│   │       ├── Badge.js
+│   │       ├── PriorityAlert.js
+│   │       └── StatCard.js
+│   │
 │   ├── pages/
-│   │   ├── Dashboard.js           # Unified view of aggregated data [cite: 35]
-│   │   ├── MapPage.js             # Visualizing distribution & need hotspots [cite: 13]
-│   │   ├── PostNeedPage.js        # Form for new needs with auto-priority detection [cite: 33]
-│   │   ├── ChatbotPage.js         # Assistant for navigating scattered data [cite: 8]
-│   │   └── AdminPage.js           # Resource allocation control center [cite: 17]
-│   └── firebase.js
+│   │   ├── Dashboard.js
+│   │   ├── MapPage.js
+│   │   ├── PostNeedPage.js        # 🔥 NOW AI-ONLY
+│   │   ├── ChatbotPage.js
+│   │   └── AdminPage.js
+│   │
+│   └── data/
+│       └── mockData.js
+│
 └── .env
 
 ```

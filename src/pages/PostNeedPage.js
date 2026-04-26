@@ -1,278 +1,169 @@
-import React, { useState, useRef, useEffect } from 'react'; // 🆕 useEffect
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import NLPClassifier from '../components/Needs/NLPClassifier';
-import Button from '../components/UI/Button';
-import Input from '../components/UI/Input';
-import Select from '../components/UI/Select';
-import { NEED_TYPES, URGENCY_LEVELS } from '../data/mockData';
-import { toast } from 'react-toastify';
-import styles from './PostNeedPage.module.css';
+import React, { useRef, useState } from "react";
+import { useApp } from "../context/AppContext";
+import { parseNeed } from "../utils/apiClient";
+import { geocodeLocation } from "../utils/geo";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { Autocomplete } from "@react-google-maps/api";
 
-// 🆕 AI IMPORTS
-import {
-  calculatePriorityScore,
-  detectUrgencyScore,
-  aiMatchVolunteers
-} from '../utils/aiEngine';
-
-const EMPTY = {
-  title: '',
-  type: 'Food',
-  qty: '',
-  unit: 'packets',
-  location: '',
-  urgency: 'Medium',
-  description: '',
-  requiredVolunteers: ''
-};
-
 function PostNeedPage() {
-
-  // ⚠️ ENHANCED (added users safely)
-  const { addNeed, currentUser, users = [] } = useApp();
-
+  const { addNeed, currentUser } = useApp();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState(EMPTY);
-  const [errors, setErrors] = useState({});
-  const [coords, setCoords] = useState({ lat: null, lng: null });
+  const [text, setText] = useState("");
+  const [tasks, setTasks] = useState([]); // array of parsed tasks
+  const [loading, setLoading] = useState(false);
 
-  // 🆕 AI STATE
-  const [priorityPreview, setPriorityPreview] = useState(null);
+  // one ref per row (simple: reuse and read active row index)
+  const autoRefs = useRef({}); // { [index]: ref }
+  const [coordsMap, setCoordsMap] = useState({}); // { [index]: {lat,lng} }
 
-  const autoRef = useRef(null);
+  // 🤖 Analyze text
+  const handleAnalyze = async () => {
+    if (!text.trim()) return;
 
-  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
-
-
-  // ⚠️ ENHANCED NLP HANDLER (NON-BREAKING)
-  const handleClassified = ({ category, urgency, qty, title }) => {
-
-    const urgencyScore = detectUrgencyScore(title || "");
-
-    let autoUrgency = "Medium";
-    if (urgencyScore > 85) autoUrgency = "Critical";
-    else if (urgencyScore > 70) autoUrgency = "High";
-
-    setForm(f => ({
-      ...f,
-      title: title || f.title,
-      type: category || f.type,
-      urgency: urgency || autoUrgency, // 🆕 smarter fallback
-      qty: qty ? String(qty) : f.qty,
-    }));
+    setLoading(true);
+    try {
+      const result = await parseNeed(text); // array
+      setTasks(result);
+      setCoordsMap({});
+    } catch (e) {
+      toast.error("AI parsing failed");
+    }
+    setLoading(false);
   };
 
-
-  const handlePlaceSelect = () => {
-    const place = autoRef.current.getPlace();
+  // 📍 select place per task
+  const handlePlaceSelect = (idx) => {
+    const ref = autoRefs.current[idx];
+    const place = ref?.getPlace?.();
 
     if (!place || !place.geometry) {
-      toast.error("❌ Select location from dropdown");
+      toast.error("❌ Select from dropdown");
       return;
     }
 
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
 
-    setCoords({ lat, lng });
+    setCoordsMap((m) => ({ ...m, [idx]: { lat, lng } }));
 
-    setForm(f => ({
-      ...f,
-      location: place.formatted_address || place.name
-    }));
-  };
-
-
-  // 🆕 PRIORITY AUTO CALCULATION (SAFE)
-  useEffect(() => {
-    if (!form.title) return;
-
-    const tempNeed = {
-      ...form,
-      qty: parseInt(form.qty) || 1,
-      status: "Pending",
-      createdAt: new Date()
-    };
-
-    const score = calculatePriorityScore(tempNeed);
-    setPriorityPreview(score);
-
-  }, [form]);
-
-
-  // 🆕 AI VOLUNTEER SUGGESTIONS
-  const suggestions =
-    coords.lat && coords.lng
-      ? aiMatchVolunteers(
-          {
-            ...form,
-            lat: coords.lat,
-            lng: coords.lng
-          },
-          users
-        ).slice(0, 3)
-      : [];
-
-
-  const validate = () => {
-    const e = {};
-
-    if (!form.title.trim()) e.title = 'Title required';
-    if (!form.location.trim()) e.location = 'Location required';
-    if (!form.qty || isNaN(form.qty)) e.qty = 'Invalid quantity';
-
-    if (!form.requiredVolunteers || isNaN(form.requiredVolunteers)) {
-      e.requiredVolunteers = 'Invalid number';
-    }
-
-    // 🆕 SMART WARNING (non-blocking)
-    if (parseInt(form.qty) > 1000) {
-      e.qty = '⚠️ Large request — consider splitting';
-    }
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-
-  const handleSubmit = () => {
-    if (!validate()) return;
-
-    if (!coords.lat) {
-      toast.error("❌ Please select location properly");
-      return;
-    }
-
-    if (!currentUser || !currentUser.email) {
-      toast.error("User not loaded. Please login again.");
-      return;
-    }
-
-    addNeed({
-      ...form,
-      qty: parseInt(form.qty),
-      requiredVolunteers: parseInt(form.requiredVolunteers),
-      lat: coords.lat,
-      lng: coords.lng,
-      postedBy: currentUser.email
+    setTasks((prev) => {
+      const copy = [...prev];
+      copy[idx] = {
+        ...copy[idx],
+        location: place.formatted_address || place.name
+      };
+      return copy;
     });
-
-    toast.success("📍 Need posted!");
-    navigate('/needs');
   };
 
+  // 🚀 Confirm all tasks
+  const handleConfirm = async () => {
+    if (!tasks.length) return;
+
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+
+      if (!t.location || t.location.length < 3) {
+        toast.error(`⚠️ Enter valid location for Task ${i + 1}`);
+        return;
+      }
+
+      let coords = coordsMap[i];
+
+      if (!coords) {
+        coords = await geocodeLocation(t.location);
+      }
+
+      if (!coords) {
+        toast.error(`⚠️ Could not find location for Task ${i + 1}`);
+        return;
+      }
+
+      const payload = {
+        ...t,
+        lat: coords.lat,
+        lng: coords.lng,
+        postedBy: currentUser?.email || "anonymous",
+        createdAt: new Date(),
+        status: "Pending"
+      };
+
+      addNeed(payload);
+    }
+
+    toast.success("🚀 All tasks created!");
+    navigate("/needs");
+  };
 
   return (
-    <div className={styles.page}>
+    <div style={{ padding: 20 }}>
+      <h2>Describe the Task</h2>
 
-      {/* HEADER */}
-      <div className={styles.header}>
-        <button className={styles.back} onClick={() => navigate(-1)}>← Back</button>
-        <h1 className={styles.title}>Post a New Need</h1>
-      </div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder='e.g. "need 2 doctors and 1 teacher in kolkata"'
+        style={{ width: "100%", height: 120 }}
+      />
 
+      <br /><br />
 
-      {/* NLP */}
-      <NLPClassifier onClassified={handleClassified} />
+      <button onClick={handleAnalyze} disabled={loading}>
+        {loading ? "Analyzing..." : "🤖 Analyze"}
+      </button>
 
+      {/* 🔍 MULTI TASK PREVIEW */}
+      {tasks.map((t, i) => (
+        <div key={i} style={{ marginTop: 20, borderTop: "1px solid #333", paddingTop: 10 }}>
+          <h3>🧠 Task {i + 1}</h3>
 
-      {/* 🆕 AI PRIORITY PREVIEW */}
-      {priorityPreview && (
-        <div className={styles.aiPreview}>
-          🧠 Priority Score: <b>{priorityPreview}</b>
+          <p><b>Type:</b> {t.type}</p>
+          <p><b>Quantity:</b> {t.qty}</p>
+          <p><b>Urgency:</b> {t.urgency}</p>
+          <p><b>Volunteers:</b> {t.requiredVolunteers}</p>
 
-          {priorityPreview > 80 && " 🔥 Critical"}
-          {priorityPreview > 60 && priorityPreview <= 80 && " ⚠️ High"}
-        </div>
-      )}
+          {/* 📍 Editable location with Autocomplete */}
+          <div style={{ marginTop: 8 }}>
+            <b>Location:</b>
 
-
-      <div className={styles.formCard}>
-
-        <div className={styles.grid2}>
-
-          <Input
-            label="Title"
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            error={errors.title}
-          />
-
-          <Select
-            label="Type"
-            value={form.type}
-            onChange={e => set('type', e.target.value)}
-            options={NEED_TYPES}
-          />
-
-          <Select
-            label="Urgency"
-            value={form.urgency}
-            onChange={e => set('urgency', e.target.value)}
-            options={URGENCY_LEVELS}
-          />
-
-          <Input
-            label="Quantity"
-            value={form.qty}
-            onChange={e => set('qty', e.target.value)}
-            error={errors.qty}
-          />
-
-          <Input
-            label="Required Volunteers"
-            value={form.requiredVolunteers}
-            onChange={e => set('requiredVolunteers', e.target.value)}
-            error={errors.requiredVolunteers}
-          />
-
-          <Input
-            label="Unit"
-            value={form.unit}
-            onChange={e => set('unit', e.target.value)}
-          />
-
-          {/* LOCATION */}
-          <div style={{ gridColumn: '1 / -1' }}>
             <Autocomplete
-              onLoad={(ref) => (autoRef.current = ref)}
-              onPlaceChanged={handlePlaceSelect}
+              onLoad={(ref) => (autoRefs.current[i] = ref)}
+              onPlaceChanged={() => handlePlaceSelect(i)}
             >
-              <Input
-                label="Location"
-                value={form.location}
-                onChange={e => set('location', e.target.value)}
-                error={errors.location}
+              <input
+                value={t.location || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTasks((prev) => {
+                    const copy = [...prev];
+                    copy[i] = { ...copy[i], location: val };
+                    return copy;
+                  });
+                }}
+                placeholder="Search or enter location"
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
               />
             </Autocomplete>
           </div>
 
+          {!t.location && (
+            <p style={{ color: "orange" }}>
+              ⚠️ AI couldn’t detect location—please enter.
+            </p>
+          )}
         </div>
+      ))}
 
-
-        {/* 🆕 AI SUGGESTIONS */}
-        {suggestions.length > 0 && (
-          <div className={styles.suggestions}>
-            <h4>🤖 Suggested Volunteers</h4>
-
-            {suggestions.map((v, i) => (
-              <div key={i}>
-                {v.username || v.email} — Score: {v.matchScore}
-              </div>
-            ))}
-          </div>
-        )}
-
-
-        {/* ACTION */}
-        <div className={styles.formActions}>
-          <Button onClick={handleSubmit}>🚀 Submit</Button>
+      {tasks.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <button onClick={handleConfirm}>🚀 Confirm & Create All</button>
+          <button onClick={() => setTasks([])} style={{ marginLeft: 10 }}>
+            ✏️ Rewrite
+          </button>
         </div>
-
-      </div>
+      )}
     </div>
   );
 }
