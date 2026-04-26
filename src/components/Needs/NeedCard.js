@@ -1,10 +1,14 @@
 import React from 'react';
 import Badge from '../UI/Badge';
 import Button from '../UI/Button';
-import { URGENCY_COLORS, STATUS_COLORS, TYPE_ICONS } from '../../data/mockData';
+import {
+  URGENCY_COLORS,
+  STATUS_COLORS,
+  TYPE_ICONS
+} from '../../data/mockData';
 import styles from './NeedCard.module.css';
 
-function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
+function NeedCard({ need, onStatusChange, currentUser }) {
 
   const needType = need.category || need.type || 'Other';
   const required = need.requiredVolunteers || 1;
@@ -14,7 +18,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const userEmail = currentUser?.email;
 
-  // 🔥 SAFE CREATOR EXTRACTION
+  // ✅ CREATOR SAFE EXTRACTION
   const creator = need.postedBy || {};
 
   const creatorEmail =
@@ -35,17 +39,13 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const isVolunteer = assignedEmails.includes(userEmail);
 
-  // 📧 EMAIL FUNCTION (FIXED)
+  // 📧 EMAIL FUNCTION
   const sendEmailToCreator = async () => {
     try {
-
       if (!creatorEmail) {
-        console.warn("❌ No creator email found");
-        alert("Creator email not found");
+        console.warn("⚠️ No creator email");
         return;
       }
-
-      console.log("📧 Sending email to:", creatorEmail);
 
       const res = await fetch("http://localhost:5000/api/chat/send-email", {
         method: "POST",
@@ -63,18 +63,16 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
       if (!res.ok) {
         console.error("❌ Email failed:", data);
-        alert("Email failed to send");
       } else {
-        alert("📧 Email sent to creator");
+        console.log("📧 Email sent successfully");
       }
 
     } catch (err) {
       console.error("❌ Email error:", err);
-      alert("Email error occurred");
     }
   };
 
-  // ✅ COMPLETE FLOW (FIXED)
+  // ✅ COMPLETE FLOW (FINAL FIX)
   const handleComplete = async () => {
 
     if (!isOwner && !isVolunteer) {
@@ -84,7 +82,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
     const volunteers = need.assignedTo || [];
 
-    // 🧑‍💼 OWNER FLOW (WITH RATING)
+    // 🧑‍💼 OWNER → collect ratings
     if (isOwner) {
 
       if (volunteers.length === 0) {
@@ -95,44 +93,53 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
       const ratings = [];
 
       for (let v of volunteers) {
+
+        const uid  = typeof v === 'object' ? v.uid : v;
         const name = typeof v === 'object' ? v.name : v;
 
-        let rating = Number(prompt(`Rate ${name} (1-5):`));
+        let input = prompt(`Rate ${name} (1-5):`);
+
+        if (input === null) {
+          alert("Rating cancelled");
+          return;
+        }
+
+        const rating = Number(input);
 
         if (!rating || rating < 1 || rating > 5) {
-          alert("Invalid rating");
+          alert("Invalid rating (1-5 only)");
           return;
         }
 
         ratings.push({
-          uid: typeof v === 'object' ? v.uid : v,
-          name,
+          uid: String(uid),   // 🔥 IMPORTANT
           rating
         });
       }
 
-      onStatusChange && onStatusChange(need.id, 'Completed', ratings);
+      // ✅ ALWAYS PASS RATINGS
+      if (typeof onStatusChange === "function") {
+        onStatusChange(need.id, "Completed", ratings);
+      }
     }
 
-    // 🙋 VOLUNTEER FLOW (EMAIL TRIGGER)
+    // 🙋 VOLUNTEER → no ratings
     else if (isVolunteer) {
 
-      onStatusChange && onStatusChange(need.id, 'Completed');
-
-      // 🔥 IMPORTANT: ensure email exists
-      if (!creatorEmail) {
-        console.warn("⚠️ Creator email missing");
-        return;
+      if (typeof onStatusChange === "function") {
+        onStatusChange(need.id, "Completed", []); // ✅ MUST pass empty array
       }
 
-      await sendEmailToCreator();
+      if (creatorEmail) {
+        await sendEmailToCreator();
+      }
     }
   };
 
   return (
     <div className={styles.card}>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div className={styles.top}>
         <div className={styles.left}>
           <span className={styles.typeIcon}>
@@ -153,12 +160,12 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
         </div>
       </div>
 
-      {/* ── DESCRIPTION ── */}
+      {/* DESCRIPTION */}
       {need.description && (
         <p className={styles.desc}>{need.description}</p>
       )}
 
-      {/* ── FOOTER ── */}
+      {/* FOOTER */}
       <div className={styles.bottom}>
         <div className={styles.info}>
           Posted by - {creatorName}
@@ -180,11 +187,10 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
           <span className={styles.type}>{needType}</span>
         </div>
 
-        {/* ── ACTIONS ── */}
         <div className={styles.actions}>
 
           {!isCompleted && !isFull && (
-            <span style={{ color: '#f59e0b', fontWeight: 500 }}>
+            <span style={{ color: '#f59e0b' }}>
               🤖 Finding Volunteers...
             </span>
           )}
@@ -201,7 +207,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
           )}
 
           {isCompleted && (
-            <span style={{ color: '#22c55e', fontWeight: 600 }}>
+            <span style={{ color: '#22c55e' }}>
               ✅ Task Completed
             </span>
           )}

@@ -112,7 +112,7 @@ function NeedsPage() {
       return;
     }
 
-    updateNeedStatus(id, status);
+    updateNeedStatus(id, status, ratings || []);
     toast.success(`Status updated to ${status}`);
   };
 

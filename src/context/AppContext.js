@@ -1,5 +1,4 @@
 import { aiMatchVolunteers } from '../utils/aiEngine';
-
 import React, {
   createContext,
   useContext,
@@ -17,6 +16,7 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
+  runTransaction,
   setDoc,
   getDoc,
   query,
@@ -308,58 +308,78 @@ export function AppProvider({ children }) {
     await logActivity("📦 Created a need");
   }, [user, logActivity, addNotification]);
 
-  // ✅ UPDATE STATUS (UNCHANGED)
+  // ✅  (UNCHANGED)
   const updateNeedStatus = useCallback(async (id, status, ratings = []) => {
-    try {
+  try {
 
-      const needRef = doc(db, "needs", id);
-      const snap = await getDoc(needRef);
-      if (!snap.exists()) return;
+    const needRef = doc(db, "needs", id);
+    const snap = await getDoc(needRef);
 
-      const needData = snap.data();
+    if (!snap.exists()) return;
 
-      await updateDoc(needRef, { status });
+    const needData = snap.data();
 
-      if (status === "Completed") {
+    // ✅ update need
+    await updateDoc(needRef, {
+      status,
+      completedAt: status === "Completed" ? new Date() : null
+    });
 
-        const volunteers = needData.assignedTo || [];
+    if (status === "Completed") {
 
-        for (let v of volunteers) {
+      const volunteers = needData.assignedTo || [];
 
-          const uid = typeof v === 'object' ? v.uid : v;
-          if (!uid) continue;
+      for (let v of volunteers) {
 
-          const userRef = doc(db, "users", uid);
-          const userSnap = await getDoc(userRef);
-          if (!userSnap.exists()) continue;
+        const uid = String(typeof v === "object" ? v.uid : v);
+
+
+        // 🔥 STRICT MATCH FIX
+        const ratingObj = ratings.find(r => String(r.uid) === uid);
+
+
+        const userRef = doc(db, "users", uid);
+
+        await runTransaction(db, async (transaction) => {
+
+          const userSnap = await transaction.get(userRef);
+          if (!userSnap.exists()) return;
 
           const data = userSnap.data();
-          const ratingObj = ratings.find(r => r.uid === uid);
 
-          if (ratingObj) {
-            const total = (data.totalRatings || 0) + 1;
+          let tasksCompleted = (data.tasksCompleted || 0) + 1;
+          let totalRatings = data.totalRatings || 0;
+          let rating = data.rating || 0;
 
-            const avg =
-              ((data.rating || 0) * (data.totalRatings || 0) + ratingObj.rating) / total;
+          // ⭐ APPLY RATING ONLY IF EXISTS
+          if (ratingObj && ratingObj.rating) {
 
-            await updateDoc(userRef, {
-              available: true,
-              tasksCompleted: (data.tasksCompleted || 0) + 1,
-              rating: avg,
-              totalRatings: total
-            });
-          } else {
-            await updateDoc(userRef, { available: true });
+            totalRatings += 1;
+
+            rating =
+              ((rating * (totalRatings - 1)) + ratingObj.rating) /
+              totalRatings;
+
+            rating = Math.round(rating * 10) / 10;
           }
-        }
+
+          // 🔥 UPDATE USER DOC
+          transaction.update(userRef, {
+            available: true,
+            tasksCompleted,
+            totalRatings,
+            rating,
+            assignedCount: 0
+          });
+
+        });
       }
-
-      await logActivity(`🔄 Updated need to ${status}`);
-
-    } catch (err) {
-      console.error("Update need error:", err);
     }
-  }, [logActivity]);
+
+  } catch (err) {
+    console.error("❌ Update error:", err);
+  }
+}, []);
 
   return (
     <AppContext.Provider value={{
