@@ -158,25 +158,78 @@ export function generateHeatMapData(needs) {
 // ══════════════════════════════════════════════════════════════
 // 📊 DATA AGGREGATION
 // ══════════════════════════════════════════════════════════════
-export function aggregateNeedsData(needs, users) {
+export function aggregateNeedsData(needs = [], users = []) {
+
   const byType = {};
+  let criticalUnassigned = 0;
 
   needs.forEach(n => {
     const type = normalizeType(n.type);
+
     if (!byType[type]) {
-      byType[type] = { count: 0, totalQty: 0 };
+      byType[type] = {
+        count: 0,
+        pending: 0,
+        critical: 0,
+        totalQty: 0
+      };
     }
+
     byType[type].count++;
     byType[type].totalQty += n.qty || 1;
+
+    if (n.status === 'Pending') byType[type].pending++;
+    if (n.urgency === 'Critical') byType[type].critical++;
+
+    if (
+      (n.urgency === 'Critical' || n.urgency === 'High') &&
+      n.status === 'Pending'
+    ) {
+      criticalUnassigned++;
+    }
+  });
+
+  // ✅ AREA CLUSTERS (simple version)
+  const areaSeverity = needs
+    .filter(n => n.lat && n.lng)
+    .map(n => ({
+      center: { lat: n.lat, lng: n.lng },
+      needs: [n],
+      severityScore: calculatePriorityScore(n),
+      dominantType: normalizeType(n.type),
+      riskLevel:
+        calculatePriorityScore(n) > 70
+          ? 'High'
+          : calculatePriorityScore(n) > 40
+          ? 'Medium'
+          : 'Low'
+    }));
+
+  // ✅ COVERAGE GAPS
+  const volunteers = users.filter(u =>
+    u.role === 'Volunteer' || u.role === 'volunteer'
+  );
+
+  const coverageGaps = Object.keys(byType).filter(type => {
+    const skills = (skillMap[type] || []).map(s => s.toLowerCase());
+
+    const hasVolunteer = volunteers.some(v =>
+      skills.includes((v.skill || '').toLowerCase())
+    );
+
+    return !hasVolunteer && byType[type].pending > 0;
   });
 
   return {
     byType,
-    totalNeeds: needs.length,
-    totalVolunteers: users.length
+    areaSeverity,
+    coverageGaps,
+    criticalUnassigned,
+    completionRate: 0,
+    availableVolunteers: volunteers.filter(v => v.available !== false).length,
+    trend: { change: 0 }
   };
 }
-
 
 // ══════════════════════════════════════════════════════════════
 // 📈 RISK PREDICTION (simple version)
