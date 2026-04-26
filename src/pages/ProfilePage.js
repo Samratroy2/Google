@@ -123,8 +123,6 @@ function ProfilePage() {
     }
 
     try {
-      const isAdmin = current.role?.toLowerCase() === "admin";
-
       await updateUser(user.uid, {
         username: form.username.trim(),
         email: form.email,
@@ -142,21 +140,15 @@ function ProfilePage() {
           ? form.subSkills.split(',').map(s => s.trim())
           : [],
 
-        // ✅ Save NGO fields (safe even if empty)
         organizationName: form.organizationName,
         registrationNumber: form.registrationNumber,
         website: form.website,
         foundedYear: form.foundedYear,
 
-        status: isAdmin ? "approved" : "pending"
+        // ✅ Always approved
+        status: "approved"
       });
-
-      toast.success(
-        isAdmin
-          ? "✅ Profile updated instantly"
-          : "⏳ Profile updated (waiting for admin approval)"
-      );
-
+      toast.success("✅ Profile updated successfully");
     } catch (err) {
       toast.error(err.message);
     }
