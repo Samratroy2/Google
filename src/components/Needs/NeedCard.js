@@ -33,7 +33,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const isVolunteer = assignedEmails.includes(userEmail);
 
-  // ✅ EMAIL API
+  // 📧 EMAIL API
   const sendEmailToCreator = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/send-email", {
@@ -52,7 +52,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
       if (!res.ok) {
         console.error("❌ Email failed:", data);
       } else {
-        console.log("✅ Email actually sent");
+        console.log("✅ Email sent");
       }
 
     } catch (err) {
@@ -60,6 +60,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
     }
   };
 
+  // ✅ COMPLETE FLOW (UNCHANGED)
   const handleComplete = async () => {
 
     if (!isOwner && !isVolunteer) {
@@ -69,9 +70,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
     const volunteers = need.assignedTo || [];
 
-    // OWNER FLOW
     if (isOwner) {
-
       if (volunteers.length === 0) {
         alert("No volunteers assigned");
         return;
@@ -99,9 +98,7 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
       onStatusChange && onStatusChange(need.id, 'Completed', ratings);
     }
 
-    // VOLUNTEER FLOW
     else if (isVolunteer) {
-
       onStatusChange && onStatusChange(need.id, 'Completed');
 
       if (creatorEmail) {
@@ -160,22 +157,11 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
         <div className={styles.actions}>
 
+          {/* ✅ ONLY CHANGE: buttons removed, feedback kept */}
           {!isCompleted && !isFull && (
-            <>
-              <Button size="sm" onClick={() => onMatch && onMatch(need)}>
-                🤖 AI Match
-              </Button>
-
-              <Button
-                size="sm"
-                variant="success"
-                onClick={() =>
-                  onStatusChange && onStatusChange(need.id, 'Assigned')
-                }
-              >
-                Assign
-              </Button>
-            </>
+            <span style={{ color: '#f59e0b', fontWeight: 500 }}>
+              🤖 Finding Volunteers...
+            </span>
           )}
 
           {!isCompleted && isFull && (

@@ -1,3 +1,5 @@
+import { aiMatchVolunteers } from '../utils/aiEngine';
+
 import React, {
   createContext,
   useContext,
@@ -13,7 +15,6 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
-  deleteDoc,
   doc,
   serverTimestamp,
   setDoc,
@@ -51,6 +52,108 @@ export function AppProvider({ children }) {
     document.body.setAttribute("data-theme", theme);
   }, [theme]);
 
+  // ✅ LOG ACTIVITY
+  const logActivity = useCallback(async (action, emailOverride = null) => {
+    try {
+      await addDoc(collection(db, "activities"), {
+        email: emailOverride || user?.email || "System",
+        name: user?.name || "System",
+        action,
+        createdAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Activity log error:", err);
+    }
+  }, [user]);
+
+  // 🔐 AUTH
+  const signup = async (email, password, role = "General", name = "") => {
+    const res = await createUserWithEmailAndPassword(auth, email, password);
+
+    await setDoc(doc(db, "users", res.user.uid), {
+      uid: res.user.uid,
+      email,
+      name,
+      role,
+      status: role === "Volunteer" ? "pending" : "approved",
+      available: true,
+      createdAt: serverTimestamp()
+    });
+
+    return res.user;
+  };
+
+  const login = async (email, password) => {
+    const res = await signInWithEmailAndPassword(auth, email, password);
+    await logActivity("🔐 Login", email);
+    return res.user;
+  };
+
+  const logout = async () => {
+    await logActivity("🚪 Logout", user?.email);
+    await signOut(auth);
+  };
+
+  // 🤖 AUTO ASSIGN
+  useEffect(() => {
+
+    if (!needs.length || !users.length) return;
+
+    const runAutoAssign = async () => {
+
+      for (let need of needs) {
+
+        const needRef = doc(db, "needs", need.id);
+        const snap = await getDoc(needRef);
+        if (!snap.exists()) continue;
+
+        const needData = snap.data();
+
+        const required = needData.requiredVolunteers || 1;
+        const assigned = (needData.assignedTo || []).length;
+
+        if (assigned >= required) continue;
+
+        const matches = aiMatchVolunteers(needData, users);
+        if (!matches.length) continue;
+
+        const existingIds = (needData.assignedTo || []).map(v => v.uid);
+
+        const availableMatches = matches.filter(
+          v => !existingIds.includes(v.uid)
+        );
+
+        if (!availableMatches.length) continue;
+
+        const remaining = required - assigned;
+        const finalVols = availableMatches.slice(0, remaining);
+
+        await updateDoc(needRef, {
+          status: "Assigned",
+          assignedTo: [
+            ...(needData.assignedTo || []),
+            ...finalVols.map(v => ({
+              uid: v.uid,
+              name: v.email || "Volunteer"
+            }))
+          ]
+        });
+
+        for (let v of finalVols) {
+          await updateDoc(doc(db, "users", v.uid), {
+            available: false
+          });
+        }
+
+        await logActivity(`🤖 Assigned ${finalVols.length} volunteers`);
+      }
+    };
+
+    runAutoAssign();
+
+  }, [needs, users, logActivity]);
+
+  // 🔔 NOTIFICATIONS
   const addNotification = useCallback((text) => {
     const newNotif = {
       id: Date.now(),
@@ -69,12 +172,10 @@ export function AppProvider({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // 🔐 AUTH STATE
   useEffect(() => {
-    setPersistence(auth, browserLocalPersistence)
-      .catch(err => console.error("Persistence error:", err));
-  }, []);
+    setPersistence(auth, browserLocalPersistence);
 
-  useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
         setUser(null);
@@ -82,32 +183,29 @@ export function AppProvider({ children }) {
         return;
       }
 
-      try {
-        const snap = await getDoc(doc(db, "users", u.uid));
-        if (!snap.exists()) {
-          setUser(null);
-          setAuthLoading(false);
-          return;
-        }
+      const snap = await getDoc(doc(db, "users", u.uid));
 
-        const data = snap.data();
-
-        setUser({
-          ...u,
-          role: data.role || "General",
-          name: data.name || u.email || "User"
-        });
-
-      } catch (err) {
-        console.error("Auth error:", err);
-      } finally {
+      if (!snap.exists()) {
+        setUser(null);
         setAuthLoading(false);
+        return;
       }
+
+      const data = snap.data();
+
+      setUser({
+        ...u,
+        role: data.role || "General",
+        name: data.name || u.email || "User"
+      });
+
+      setAuthLoading(false);
     });
 
     return () => unsub();
   }, []);
 
+  // 🔄 LISTENERS
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "needs"), (snap) => {
       setNeeds(
@@ -146,246 +244,95 @@ export function AppProvider({ children }) {
     return () => unsub();
   }, []);
 
-  const logActivity = useCallback(async (action, emailOverride = null) => {
-    try {
-      await addDoc(collection(db, "activities"), {
-        email: emailOverride || user?.email || "System",
-        name: user?.name || "System",
-        action,
-        createdAt: serverTimestamp()
-      });
-    } catch (err) {
-      console.error("Activity log error:", err);
-    }
-  }, [user]);
-
-  // 🔐 AUTH
-  const signup = async (email, password, role = "General", name = "") => {
-    const res = await createUserWithEmailAndPassword(auth, email, password);
-
-    await setDoc(doc(db, "users", res.user.uid), {
-      uid: res.user.uid,
-      email,
-      name,
-      role,
-      status: role === "Volunteer" ? "pending" : "approved",
-      proofUrl: "",
-      createdAt: serverTimestamp()
+  // ➕ ADD NEED
+  const addNeed = useCallback(async (need) => {
+    await addDoc(collection(db, "needs"), {
+      ...need,
+      requiredVolunteers: need.requiredVolunteers || 1,
+      status: 'Pending',
+      createdAt: serverTimestamp(),
+      postedBy: {
+        name: user?.name || "User",
+        uid: user?.uid,
+        email: user?.email
+      }
     });
 
-    return res.user;
-  };
-
-  const login = async (email, password) => {
-    const res = await signInWithEmailAndPassword(auth, email, password);
-    await logActivity("🔐 Login", email);
-    return res.user;
-  };
-
-  const logout = async () => {
-    await logActivity("🚪 Logout", user?.email);
-    await signOut(auth);
-  };
-
-  // ➕ NEED
-  const addNeed = useCallback(async (need) => {
-    try {
-      await addDoc(collection(db, "needs"), {
-        ...need,
-        requiredVolunteers: need.requiredVolunteers || 1, // ✅ ensure exists
-        status: 'Pending',
-        createdAt: serverTimestamp(),
-        postedBy: {
-          name: user?.name || "User",
-          uid: user?.uid,
-          email: user?.email
-        }
-      });
-
-      addNotification("📢 New need posted");
-      await logActivity("📦 Created a need");
-    } catch (err) {
-      console.error("Add need error:", err);
-    }
+    addNotification("📢 New need posted");
+    await logActivity("📦 Created a need");
   }, [user, logActivity, addNotification]);
 
-  const updateNeedStatus = useCallback(async (id, status) => {
+  // ✅ FINAL STATUS UPDATE (FIXED)
+  const updateNeedStatus = useCallback(async (id, status, ratings = []) => {
     try {
-      await updateDoc(doc(db, "needs", id), { status });
+
+      const needRef = doc(db, "needs", id);
+      const snap = await getDoc(needRef);
+      if (!snap.exists()) return;
+
+      const needData = snap.data();
+
+      await updateDoc(needRef, { status });
+
+      if (status === "Completed") {
+
+        const volunteers = needData.assignedTo || [];
+
+        for (let v of volunteers) {
+
+          const uid = typeof v === "object" ? v.uid : v;
+          if (!uid) continue;
+
+          const userRef = doc(db, "users", uid);
+          const userSnap = await getDoc(userRef);
+          if (!userSnap.exists()) continue;
+
+          const data = userSnap.data();
+          const ratingObj = ratings.find(r => r.uid === uid);
+
+          if (ratingObj) {
+            const total = (data.totalRatings || 0) + 1;
+
+            const avg =
+              ((data.rating || 0) * (data.totalRatings || 0) + ratingObj.rating) / total;
+
+            await updateDoc(userRef, {
+              available: true,
+              tasksCompleted: (data.tasksCompleted || 0) + 1,
+              rating: avg,
+              totalRatings: total
+            });
+          } else {
+            await updateDoc(userRef, { available: true });
+          }
+        }
+      }
+
       await logActivity(`🔄 Updated need to ${status}`);
+
     } catch (err) {
       console.error("Update need error:", err);
     }
   }, [logActivity]);
 
-  const deleteNeed = useCallback(async (id) => {
-    try {
-      await deleteDoc(doc(db, "needs", id));
-      await logActivity("🗑 Deleted a need");
-    } catch (err) {
-      console.error("Delete need error:", err);
-    }
-  }, [logActivity]);
-
-  // ✅ UPDATED ASSIGN LOGIC (MAIN CHANGE)
-  const assignVolunteer = useCallback(async (needId, volunteers) => {
-    try {
-      const needRef = doc(db, "needs", needId);
-      const snap = await getDoc(needRef);
-      const needData = snap.data();
-
-      const required = needData.requiredVolunteers || 1;
-
-      // ✅ CORE LOGIC (YOUR REQUIREMENT)
-      const assignedVolunteers = volunteers.slice(
-        0,
-        Math.min(volunteers.length, required)
-      );
-
-      await updateDoc(needRef, {
-        status: "Assigned",
-        assignedTo: assignedVolunteers.map(v => ({
-          uid: v.uid,
-          name: v.name || v.email || "Volunteer"
-        }))
-      });
-
-      // mark all assigned as unavailable
-      for (let v of assignedVolunteers) {
-        await updateDoc(doc(db, "users", v.uid), {
-          available: false
-        });
-      }
-
-      await logActivity(`👷 Assigned ${assignedVolunteers.length} volunteers`);
-
-    } catch (err) {
-      console.error("Assign error:", err);
-    }
-  }, [logActivity]);
-
-  // ✅ COMPLETE
-  // ✅ ONLY showing updated part (completeTask FIX)
-
-
-
-  const completeTask = useCallback(async (need, ratings) => {
-
-    // mark completed
-    await updateDoc(doc(db, "needs", need.id), {
-      status: "Completed"
-    });
-
-    // =========================
-    // VOLUNTEER FLOW (no ratings)
-    // =========================
-    if (!ratings || ratings.length === 0) {
-      const volunteers = need.assignedTo || [];
-
-      for (let v of volunteers) {
-        const uid = typeof v === "object" ? v.uid : v;
-
-        if (!uid) continue;
-
-        await updateDoc(doc(db, "users", uid), {
-          available: true
-        });
-      }
-    }
-
-    // =========================
-    // OWNER FLOW (with ratings)
-    // =========================
-    for (let r of ratings || []) {
-
-      if (!r.uid) continue;
-
-      const userRef = doc(db, "users", r.uid);
-      const snap = await getDoc(userRef);
-
-      if (!snap.exists()) continue;
-
-      const data = snap.data();
-
-      const total = (data.totalRatings || 0) + 1;
-
-      const avg =
-        ((data.rating || 0) * (data.totalRatings || 0) + r.rating) / total;
-
-      await updateDoc(userRef, {
-        available: true,
-        tasksCompleted: (data.tasksCompleted || 0) + 1,
-        rating: avg,
-        totalRatings: total
-      });
-    }
-
-    await logActivity("✅ Task completed & volunteers released");
-
-  }, [logActivity]);
-
-
-  // 👤 USER ACTIONS
-  const updateUser = async (uid, data) => {
-    await updateDoc(doc(db, "users", uid), data);
-    await logActivity("✏️ Updated profile");
-  };
-
-  const approveUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { status: "approved" });
-    await logActivity("✅ Approved a user");
-  };
-
-  const blockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { status: "blocked" });
-    await logActivity("🚫 Blocked a user");
-  };
-
-  const unblockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { status: "approved" });
-    await logActivity("🔓 Unblocked a user");
-  };
-
-  const deleteUserAccount = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { status: "deleted" });
-    await logActivity("❌ Deleted a user");
-  };
-
   return (
     <AppContext.Provider value={{
       theme,
-      setTheme,
       toggleTheme,
-
       needs,
       users,
       activities,
-
       notifications,
       markAllRead,
       unreadCount,
-
       addNeed,
       updateNeedStatus,
-      deleteNeed,
-
-      assignVolunteer,
-      completeTask,
-
       user,
-      currentUser: user, 
+      currentUser: user,
       authLoading,
-
       login,
       signup,
       logout,
-
-      updateUser,
-      approveUser,
-      deleteUserAccount,
-      blockUser,
-      unblockUser,
-
       logActivity
     }}>
       {children}
@@ -410,4 +357,3 @@ function getTimeAgo(ts) {
 
   return `${Math.floor(hrs / 24)}d ago`;
 }
-

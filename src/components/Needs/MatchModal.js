@@ -8,7 +8,6 @@ import styles from './MatchModal.module.css';
 
 function MatchModal({ open, onClose, need, matches, onAssign }) {
 
-  // ✅ MULTI SELECT
   const [selected, setSelected] = useState([]);
 
   if (!need) return null;
@@ -54,7 +53,7 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
         return (
           <div
             key={v.id}
-            onClick={() => toggleSelect(v)} // ✅ multi select
+            onClick={() => toggleSelect(v)}
             className={`
               ${styles.volRow} 
               ${i === 0 ? styles.top : ''} 
@@ -89,6 +88,13 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
                 <span>·</span>
                 <span>{v.tasksCompleted} tasks done</span>
               </div>
+
+              {/* 🔥 AI explanation */}
+              <div className={styles.volMeta}>
+                {v.skillMatch === 'exact' && '🎯 Perfect skill match'}
+                {v.skillMatch === 'partial' && '⚡ Related skill'}
+                {v.skillMatch === 'none' && '📍 Nearby support'}
+              </div>
             </div>
 
             <div className={styles.scoreBox}>
@@ -113,14 +119,13 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
         );
       })}
 
-      {/* ✅ ACTION BUTTON */}
+      {/* ✅ ASSIGN BUTTON */}
       {matches.length > 0 && (
         <div className={styles.footer}>
           <Button
             fullWidth
             onClick={() => {
 
-              // ✅ CORE LOGIC
               const required = need.requiredVolunteers || 1;
 
               const selectedVols =
@@ -133,7 +138,12 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
                 Math.min(selectedVols.length, required)
               );
 
-              onAssign && onAssign(finalVols); // ✅ PASS ARRAY
+              onAssign && onAssign({
+                needId: need.id,
+                volunteers: finalVols,
+                status: 'Assigned'
+              });
+
               onClose();
             }}
           >
