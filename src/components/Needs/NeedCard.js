@@ -14,15 +14,17 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const userEmail = currentUser?.email;
 
+  // 🔥 SAFE CREATOR EXTRACTION
   const creator = need.postedBy || {};
+
   const creatorEmail =
     typeof creator === 'object'
-      ? creator.email || ""
-      : creator;
+      ? creator.email || need.email || ""
+      : creator || "";
 
   const creatorName =
     typeof creator === 'object'
-      ? creator.name || "User"
+      ? creator.name || creator.email || "User"
       : creator;
 
   const isOwner = userEmail === creatorEmail;
@@ -33,17 +35,27 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
   const isVolunteer = assignedEmails.includes(userEmail);
 
-  // 📧 EMAIL API
+  // 📧 EMAIL FUNCTION (FIXED)
   const sendEmailToCreator = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/send-email", {
+
+      if (!creatorEmail) {
+        console.warn("❌ No creator email found");
+        alert("Creator email not found");
+        return;
+      }
+
+      console.log("📧 Sending email to:", creatorEmail);
+
+      const res = await fetch("http://localhost:5000/api/chat/send-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           toEmail: creatorEmail,
-          needTitle: need.title
+          needTitle: need.title,
+          volunteer: currentUser?.email
         })
       });
 
@@ -51,16 +63,18 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
       if (!res.ok) {
         console.error("❌ Email failed:", data);
+        alert("Email failed to send");
       } else {
-        console.log("✅ Email sent");
+        alert("📧 Email sent to creator");
       }
 
     } catch (err) {
-      console.error("Email error:", err);
+      console.error("❌ Email error:", err);
+      alert("Email error occurred");
     }
   };
 
-  // ✅ COMPLETE FLOW (UNCHANGED)
+  // ✅ COMPLETE FLOW (FIXED)
   const handleComplete = async () => {
 
     if (!isOwner && !isVolunteer) {
@@ -70,7 +84,9 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
 
     const volunteers = need.assignedTo || [];
 
+    // 🧑‍💼 OWNER FLOW (WITH RATING)
     if (isOwner) {
+
       if (volunteers.length === 0) {
         alert("No volunteers assigned");
         return;
@@ -98,18 +114,25 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
       onStatusChange && onStatusChange(need.id, 'Completed', ratings);
     }
 
+    // 🙋 VOLUNTEER FLOW (EMAIL TRIGGER)
     else if (isVolunteer) {
+
       onStatusChange && onStatusChange(need.id, 'Completed');
 
-      if (creatorEmail) {
-        await sendEmailToCreator();
+      // 🔥 IMPORTANT: ensure email exists
+      if (!creatorEmail) {
+        console.warn("⚠️ Creator email missing");
+        return;
       }
+
+      await sendEmailToCreator();
     }
   };
 
   return (
     <div className={styles.card}>
 
+      {/* ── HEADER ── */}
       <div className={styles.top}>
         <div className={styles.left}>
           <span className={styles.typeIcon}>
@@ -130,10 +153,12 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
         </div>
       </div>
 
+      {/* ── DESCRIPTION ── */}
       {need.description && (
         <p className={styles.desc}>{need.description}</p>
       )}
 
+      {/* ── FOOTER ── */}
       <div className={styles.bottom}>
         <div className={styles.info}>
           Posted by - {creatorName}
@@ -155,9 +180,9 @@ function NeedCard({ need, onMatch, onDelete, onStatusChange, currentUser }) {
           <span className={styles.type}>{needType}</span>
         </div>
 
+        {/* ── ACTIONS ── */}
         <div className={styles.actions}>
 
-          {/* ✅ ONLY CHANGE: buttons removed, feedback kept */}
           {!isCompleted && !isFull && (
             <span style={{ color: '#f59e0b', fontWeight: 500 }}>
               🤖 Finding Volunteers...
