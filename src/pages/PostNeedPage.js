@@ -5,6 +5,7 @@ import { geocodeLocation } from "../utils/geo";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Autocomplete } from "@react-google-maps/api";
+import styles from "./PostNeedPage.module.css";
 
 function PostNeedPage() {
   const { addNeed, currentUser } = useApp();
@@ -98,34 +99,40 @@ function PostNeedPage() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Describe the Task</h2>
+  <div className={styles.page}>
+
+    <div className={styles.header}>
+      <h2 className={styles.title}>Describe the Task</h2>
+      <p className={styles.sub}>Use AI to generate structured needs</p>
+    </div>
+
+    <div className={styles.formCard}>
 
       <textarea
+        className={styles.textarea}
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder='e.g. "need 2 doctors and 1 teacher in kolkata"'
-        style={{ width: "100%", height: 120 }}
       />
 
       <br /><br />
 
-      <button onClick={handleAnalyze} disabled={loading}>
+      <button className={`${styles.btn} ${styles.primary}`} onClick={handleAnalyze} disabled={loading}>
         {loading ? "Analyzing..." : "🤖 Analyze"}
       </button>
 
-      {/* 🔍 MULTI TASK PREVIEW */}
+      {/* 🔍 TASKS */}
       {tasks.map((t, i) => (
-        <div key={i} style={{ marginTop: 20, borderTop: "1px solid #333", paddingTop: 10 }}>
-          <h3>🧠 Task {i + 1}</h3>
+        <div key={i} className={styles.taskCard}>
+
+          <div className={styles.taskTitle}>🧠 Task {i + 1}</div>
 
           <p><b>Type:</b> {t.type}</p>
           <p><b>Quantity:</b> {t.qty}</p>
           <p><b>Urgency:</b> {t.urgency}</p>
           <p><b>Volunteers:</b> {t.requiredVolunteers}</p>
 
-          {/* 📍 Editable location with Autocomplete */}
-          <div style={{ marginTop: 8 }}>
+          <div>
             <b>Location:</b>
 
             <Autocomplete
@@ -133,6 +140,7 @@ function PostNeedPage() {
               onPlaceChanged={() => handlePlaceSelect(i)}
             >
               <input
+                className={styles.input}
                 value={t.location || ""}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -143,29 +151,34 @@ function PostNeedPage() {
                   });
                 }}
                 placeholder="Search or enter location"
-                style={{ width: "100%", padding: 8, marginTop: 6 }}
               />
             </Autocomplete>
           </div>
 
           {!t.location && (
             <p style={{ color: "orange" }}>
-              ⚠️ AI couldn’t detect location—please enter.
+              ⚠️ Enter location
             </p>
           )}
+
         </div>
       ))}
 
       {tasks.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <button onClick={handleConfirm}>🚀 Confirm & Create All</button>
-          <button onClick={() => setTasks([])} style={{ marginLeft: 10 }}>
+        <div className={styles.actions}>
+          <button className={`${styles.btn} ${styles.primary}`} onClick={handleConfirm}>
+            🚀 Confirm & Create All
+          </button>
+
+          <button className={`${styles.btn} ${styles.secondary}`} onClick={() => setTasks([])}>
             ✏️ Rewrite
           </button>
         </div>
       )}
+
     </div>
-  );
+  </div>
+);
 }
 
 export default PostNeedPage;
