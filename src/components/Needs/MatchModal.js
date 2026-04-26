@@ -22,10 +22,12 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
     });
   };
 
+  // 🔥 ONLY AVAILABLE VOLUNTEERS
+  const availableMatches = matches.filter(v => v.available !== false);
+
   return (
     <Modal open={open} onClose={onClose} title="🤖 AI Match Results" width={520}>
 
-      {/* Need summary */}
       <div className={styles.needBox}>
         <span className={styles.needIcon}>{TYPE_ICONS[need.type]}</span>
         <div>
@@ -41,13 +43,13 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
         Best volunteer matches (AI ranked):
       </div>
 
-      {matches.length === 0 && (
+      {availableMatches.length === 0 && (
         <div className={styles.empty}>
           No available volunteers found.
         </div>
       )}
 
-      {matches.slice(0, 6).map((v, i) => {
+      {availableMatches.slice(0, 6).map((v, i) => {
         const isSelected = selected.find(s => s.id === v.id);
 
         return (
@@ -89,7 +91,6 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
                 <span>{v.tasksCompleted} tasks done</span>
               </div>
 
-              {/* 🔥 AI explanation */}
               <div className={styles.volMeta}>
                 {v.skillMatch === 'exact' && '🎯 Perfect skill match'}
                 {v.skillMatch === 'partial' && '⚡ Related skill'}
@@ -119,8 +120,7 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
         );
       })}
 
-      {/* ✅ ASSIGN BUTTON */}
-      {matches.length > 0 && (
+      {availableMatches.length > 0 && (
         <div className={styles.footer}>
           <Button
             fullWidth
@@ -131,12 +131,9 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
               const selectedVols =
                 selected.length > 0
                   ? selected
-                  : matches.slice(0, required);
+                  : availableMatches.slice(0, required);
 
-              const finalVols = selectedVols.slice(
-                0,
-                Math.min(selectedVols.length, required)
-              );
+              const finalVols = selectedVols.slice(0, required);
 
               onAssign && onAssign({
                 needId: need.id,
@@ -147,7 +144,7 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
               onClose();
             }}
           >
-            ✅ Assign {selected.length || Math.min(matches.length, need.requiredVolunteers || 1)} Volunteers
+            ✅ Assign {selected.length || Math.min(availableMatches.length, need.requiredVolunteers || 1)} Volunteers
           </Button>
         </div>
       )}

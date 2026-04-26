@@ -94,12 +94,21 @@ export function AppProvider({ children }) {
     await signOut(auth);
   };
 
-  // 🤖 AUTO ASSIGN
+  // 🤖 AUTO ASSIGN (🔥 FIXED)
   useEffect(() => {
 
     if (!needs.length || !users.length) return;
 
     const runAutoAssign = async () => {
+
+      const assignedMap = new Map(); // 🔥 global lock
+
+      // preload already assigned volunteers
+      needs.forEach(n => {
+        (n.assignedTo || []).forEach(v => {
+          assignedMap.set(v.uid, true);
+        });
+      });
 
       for (let need of needs) {
 
@@ -115,12 +124,10 @@ export function AppProvider({ children }) {
         if (assigned >= required) continue;
 
         const matches = aiMatchVolunteers(needData, users);
-        if (!matches.length) continue;
 
-        const existingIds = (needData.assignedTo || []).map(v => v.uid);
-
+        // 🔥 FILTER GLOBAL ASSIGNED USERS
         const availableMatches = matches.filter(
-          v => !existingIds.includes(v.uid)
+          v => !assignedMap.has(v.uid)
         );
 
         if (!availableMatches.length) continue;
@@ -128,17 +135,21 @@ export function AppProvider({ children }) {
         const remaining = required - assigned;
         const finalVols = availableMatches.slice(0, remaining);
 
+        // 🔥 LOCK immediately
+        finalVols.forEach(v => assignedMap.set(v.uid, true));
+
         await updateDoc(needRef, {
           status: "Assigned",
           assignedTo: [
             ...(needData.assignedTo || []),
             ...finalVols.map(v => ({
               uid: v.uid,
-              name: v.email || "Volunteer"
+              name: v.name || v.email || "Volunteer"
             }))
           ]
         });
 
+        // mark unavailable
         for (let v of finalVols) {
           await updateDoc(doc(db, "users", v.uid), {
             available: false
@@ -262,7 +273,7 @@ export function AppProvider({ children }) {
     await logActivity("📦 Created a need");
   }, [user, logActivity, addNotification]);
 
-  // ✅ FINAL STATUS UPDATE (FIXED)
+  // ✅ UPDATE STATUS
   const updateNeedStatus = useCallback(async (id, status, ratings = []) => {
     try {
 
