@@ -76,19 +76,26 @@ export function aiMatchVolunteers(need, users) {
       (u.assignedCount || 0) < (u.maxTasks || 1)
     )
     .map(v => {
-      const dist = getDistanceKm(need.lat, need.lng, v.lat, v.lng);
       const skill = (v.skill || '').toLowerCase();
+
+      // 🔥 STRICT SKILL FILTER (MAIN FIX)
+      const skillMatch = validSkills.some(s =>
+        skill.includes(s) || s.includes(skill)
+      );
+
+      if (!skillMatch) return null; // ❌ reject wrong skill completely
+
+      const dist = getDistanceKm(need.lat, need.lng, v.lat, v.lng);
 
       let score = 0;
 
-      // 🎯 Skill
-      if (validSkills.includes(skill)) score += 70;
-      else score += 30;
+      // ✅ FULL skill score
+      score += 70;
 
       // 📍 Distance
       score += Math.max(0, 1 - dist / 30) * 20;
 
-      // ⚖️ Load + fatigue penalty
+      // ⚖️ Load penalty
       const load = v.assignedCount || 0;
       const capacity = v.maxTasks || 1;
 
@@ -101,9 +108,9 @@ export function aiMatchVolunteers(need, users) {
         matchScore: Math.max(0, Math.round(score))
       };
     })
+    .filter(Boolean) // 🔥 remove nulls
     .sort((a, b) => b.matchScore - a.matchScore);
 }
-
 // ═════════════════════════════════════════════
 // 🧠 GLOBAL ASSIGNMENT ENGINE (NO DUPLICATION)
 // ═════════════════════════════════════════════

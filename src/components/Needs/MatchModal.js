@@ -23,7 +23,39 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
   };
 
   // 🔥 ONLY AVAILABLE VOLUNTEERS
-  const availableMatches = matches.filter(v => v.available !== false);
+  const getValidSkills = (type) => {
+  type = (type || '').toLowerCase();
+
+  if (type.includes('medical')) {
+    return ['doctor', 'nurse', 'surgery', 'first aid'];
+  }
+  if (type.includes('education')) {
+    return ['teacher', 'teaching'];
+  }
+  if (type.includes('food')) {
+    return ['cook', 'delivery', 'food'];
+  }
+  if (type.includes('water')) {
+    return ['logistics', 'field', 'water'];
+  }
+
+  return [];
+};
+
+const validSkills = getValidSkills(need.type);
+
+// 🔥 FINAL FILTER
+const availableMatches = matches.filter(v => {
+  if (v.available === false) return false;
+
+  const skill = (v.skill || '').toLowerCase();
+
+  if (validSkills.length === 0) return true;
+
+  return validSkills.some(s =>
+    skill.includes(s) || s.includes(skill)
+  );
+});
 
   return (
     <Modal open={open} onClose={onClose} title="🤖 AI Match Results" width={520}>

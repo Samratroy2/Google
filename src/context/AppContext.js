@@ -94,75 +94,110 @@ export function AppProvider({ children }) {
     await signOut(auth);
   };
 
-  // 🤖 AUTO ASSIGN (🔥 FIXED)
+  // 🤖 AUTO ASSIGN (FINAL FIX)
   useEffect(() => {
 
-    if (!needs.length || !users.length) return;
+  if (!needs.length || !users.length) return;
 
-    const runAutoAssign = async () => {
+  const runAutoAssign = async () => {
 
-      const assignedMap = new Map(); // 🔥 global lock
+    // 🔒 Track all busy volunteers across needs
+    const activeAssigned = new Set();
 
-      // preload already assigned volunteers
-      needs.forEach(n => {
+    needs.forEach(n => {
+      if (n.status !== "Completed") {
         (n.assignedTo || []).forEach(v => {
-          assignedMap.set(v.uid, true);
+          const uid = typeof v === 'object' ? v.uid : v;
+          if (uid) activeAssigned.add(uid);
         });
-      });
+      }
+    });
 
-      for (let need of needs) {
+    for (let need of needs) {
 
-        const needRef = doc(db, "needs", need.id);
-        const snap = await getDoc(needRef);
-        if (!snap.exists()) continue;
+      if (need.status === "Completed") continue;
 
-        const needData = snap.data();
+      const needRef = doc(db, "needs", need.id);
+      const snap = await getDoc(needRef);
+      if (!snap.exists()) continue;
 
-        const required = needData.requiredVolunteers || 1;
-        const assigned = (needData.assignedTo || []).length;
+      const needData = snap.data();
 
-        if (assigned >= required) continue;
+      const required = needData.requiredVolunteers || 1;
+      const assignedList = needData.assignedTo || [];
+      const assigned = assignedList.length;
 
-        const matches = aiMatchVolunteers(needData, users);
+      // ✅ stop if already full
+      if (assigned >= required) continue;
 
-        // 🔥 FILTER GLOBAL ASSIGNED USERS
-        const availableMatches = matches.filter(
-          v => !assignedMap.has(v.uid)
+      const remaining = required - assigned;
+
+      // ✅ only free + not already assigned volunteers
+      const freeUsers = users.filter(u => {
+        if (u.available === false) return false;
+
+        if (activeAssigned.has(u.uid)) return false;
+
+        const alreadyAssigned = assignedList.some(a =>
+          (typeof a === 'object' ? a.uid : a) === u.uid
         );
 
-        if (!availableMatches.length) continue;
+        return !alreadyAssigned;
+      });
 
-        const remaining = required - assigned;
-        const finalVols = availableMatches.slice(0, remaining);
+      if (!freeUsers.length) continue;
 
-        // 🔥 LOCK immediately
-        finalVols.forEach(v => assignedMap.set(v.uid, true));
+      const matches = aiMatchVolunteers(needData, freeUsers);
+      if (!matches.length) continue;
 
-        await updateDoc(needRef, {
-          status: "Assigned",
-          assignedTo: [
-            ...(needData.assignedTo || []),
-            ...finalVols.map(v => ({
-              uid: v.uid,
-              name: v.name || v.email || "Volunteer"
-            }))
-          ]
-        });
+      const finalVols = [];
 
-        // mark unavailable
-        for (let v of finalVols) {
-          await updateDoc(doc(db, "users", v.uid), {
-            available: false
-          });
-        }
+      for (let v of matches) {
 
-        await logActivity(`🤖 Assigned ${finalVols.length} volunteers`);
+        // 🔁 double safety
+        if (activeAssigned.has(v.uid)) continue;
+
+        const alreadyAssigned = assignedList.some(a =>
+          (typeof a === 'object' ? a.uid : a) === v.uid
+        );
+        if (alreadyAssigned) continue;
+
+        finalVols.push(v);
+
+        // 🔒 lock immediately
+        activeAssigned.add(v.uid);
+
+        if (finalVols.length >= remaining) break;
       }
-    };
 
-    runAutoAssign();
+      if (!finalVols.length) continue;
 
-  }, [needs, users, logActivity]);
+      // 🔥 update need (append new volunteers)
+      await updateDoc(needRef, {
+        status: assigned + finalVols.length >= required ? "Assigned" : "Pending",
+        assignedTo: [
+          ...assignedList,
+          ...finalVols.map(v => ({
+            uid: v.uid,
+            name: v.name || v.email || "Volunteer"
+          }))
+        ]
+      });
+
+      // 🔒 mark unavailable
+      for (let v of finalVols) {
+        await updateDoc(doc(db, "users", v.uid), {
+          available: false
+        });
+      }
+
+      await logActivity(`🤖 Assigned ${finalVols.length} volunteers`);
+    }
+  };
+
+  runAutoAssign();
+
+}, [needs, users, logActivity]);
 
   // 🔔 NOTIFICATIONS
   const addNotification = useCallback((text) => {
@@ -273,7 +308,7 @@ export function AppProvider({ children }) {
     await logActivity("📦 Created a need");
   }, [user, logActivity, addNotification]);
 
-  // ✅ UPDATE STATUS
+  // ✅ UPDATE STATUS (UNCHANGED)
   const updateNeedStatus = useCallback(async (id, status, ratings = []) => {
     try {
 
@@ -291,7 +326,7 @@ export function AppProvider({ children }) {
 
         for (let v of volunteers) {
 
-          const uid = typeof v === "object" ? v.uid : v;
+          const uid = typeof v === 'object' ? v.uid : v;
           if (!uid) continue;
 
           const userRef = doc(db, "users", uid);
