@@ -1,0 +1,115 @@
+/* Page container */
+.page {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 24px;
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  padding: 28px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* 🔥 MAIN GAP SYSTEM */
+}
+
+/* Title */
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+/* Section */
+.section {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--border);
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px; /* spacing inside section */
+}
+
+/* Section title */
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* Field wrapper */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Label (for textarea/manual labels) */
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Textarea */
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+  min-height: 80px;
+  transition: all 0.2s ease;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* Save button */
+.saveBtn {
+  margin-top: 24px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--accent), #6366f1);
+  color: white;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+/* Hover (soft, no jump) */
+.saveBtn:hover {
+  box-shadow: 0 6px 18px rgba(99,102,241,0.3);
+}
+
+/* Loading */
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .card {
+    padding: 20px;
+  }
+
+  .title {
+    font-size: 20px;
+  }
+}

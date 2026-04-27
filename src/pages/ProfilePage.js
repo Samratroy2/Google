@@ -4,6 +4,7 @@ import Button from '../components/UI/Button';
 import Input from '../components/UI/Input';
 import Select from '../components/UI/Select';
 import { toast } from 'react-toastify';
+import styles from './ProfilePage.module.css';
 import { Autocomplete } from "@react-google-maps/api";
 
 function ProfilePage() {
@@ -156,36 +157,33 @@ function ProfilePage() {
 
   if (!current) return <div style={{ padding: 40 }}>Loading...</div>;
 
-  return (
-    <div style={{
-      maxWidth: 650,
-      margin: '40px auto',
-      padding: 24,
-      background: 'var(--card)',
-      borderRadius: 16,
-      border: '1px solid var(--border)',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-    }}>
+ return (
+  <div className={styles.page}>
+    <div className={styles.card}>
 
-      <h2>👤 Edit Profile</h2>
+      <h2 className={styles.title}>👤 Edit Profile</h2>
 
-      <Input label="User ID (cannot be changed)" value={current.uid} disabled />
+      <div className={styles.field}>
+        <Input label="User ID" value={current.uid} disabled />
+      </div>
 
-      <Input
-        label="Username"
-        value={form.username}
-        onChange={e => set('username', e.target.value)}
-      />
+      <div className={styles.field}>
+        <Input
+          label="Username"
+          value={form.username}
+          onChange={e => set('username', e.target.value)}
+        />
+      </div>
 
-      <Input
-        label="Email (cannot be changed)"
-        value={form.email}
-        disabled
-      />
+      <div className={styles.field}>
+        <Input label="Email" value={form.email} disabled />
+      </div>
 
       {/* ================= NGO FORM ================= */}
       {isNGO ? (
-        <>
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Organization Details</div>
+
           <Input
             label="Organization Name"
             value={form.organizationName}
@@ -211,14 +209,16 @@ function ProfilePage() {
           />
 
           <textarea
+            className={styles.textarea}
             value={form.bio}
             onChange={e => set('bio', e.target.value)}
             placeholder="About Organization"
-            style={{ width: '100%', marginTop: 10, padding: 10 }}
           />
-        </>
+        </div>
       ) : (
-        <>
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Volunteer Details</div>
+
           {/* ================= VOLUNTEER FORM (UNCHANGED) ================= */}
 
           <Select
@@ -226,47 +226,47 @@ function ProfilePage() {
             value={form.skill}
             onChange={e => set('skill', e.target.value)}
             options={[
-            { value: "", label: "Select your skill" },
+              { value: "", label: "Select your skill" },
 
-            { value: "Doctor", label: "Doctor" },
-            { value: "Nurse", label: "Nurse" },
-            { value: "Paramedic", label: "Paramedic" },
-            { value: "Pharmacist", label: "Pharmacist" },
+              { value: "Doctor", label: "Doctor" },
+              { value: "Nurse", label: "Nurse" },
+              { value: "Paramedic", label: "Paramedic" },
+              { value: "Pharmacist", label: "Pharmacist" },
 
-            { value: "Counseling", label: "Counselor" },
-            { value: "Caregiver", label: "Caregiver" },
-            { value: "Childcare", label: "Childcare Support" },
+              { value: "Counseling", label: "Counselor" },
+              { value: "Caregiver", label: "Caregiver" },
+              { value: "Childcare", label: "Childcare Support" },
 
-            { value: "Teacher", label: "Teacher" },
-            { value: "Tutor", label: "Tutor" },
-            { value: "Trainer", label: "Trainer" },
+              { value: "Teacher", label: "Teacher" },
+              { value: "Tutor", label: "Tutor" },
+              { value: "Trainer", label: "Trainer" },
 
-            { value: "Logistics", label: "Logistics" },
-            { value: "Driver", label: "Driver" },
-            { value: "Field worker", label: "Field Worker" },
-            { value: "Delivery", label: "Delivery Support" },
+              { value: "Logistics", label: "Logistics" },
+              { value: "Driver", label: "Driver" },
+              { value: "Field worker", label: "Field Worker" },
+              { value: "Delivery", label: "Delivery Support" },
 
-            { value: "Cook", label: "Cook" },
-            { value: "Food distribution", label: "Food Distribution" },
+              { value: "Cook", label: "Cook" },
+              { value: "Food distribution", label: "Food Distribution" },
 
-            { value: "IT Support", label: "IT Support" },
-            { value: "Web Developer", label: "Web Developer" },
-            { value: "Data Entry", label: "Data Entry" },
+              { value: "IT Support", label: "IT Support" },
+              { value: "Web Developer", label: "Web Developer" },
+              { value: "Data Entry", label: "Data Entry" },
 
-            { value: "Lawyer", label: "Lawyer" },
-            { value: "Documentation", label: "Documentation" },
-            { value: "Admin Support", label: "Admin Support" },
+              { value: "Lawyer", label: "Lawyer" },
+              { value: "Documentation", label: "Documentation" },
+              { value: "Admin Support", label: "Admin Support" },
 
-            { value: "Social Media", label: "Social Media Manager" },
-            { value: "Content Writing", label: "Content Writer" },
-            { value: "Translator", label: "Translator" },
+              { value: "Social Media", label: "Social Media Manager" },
+              { value: "Content Writing", label: "Content Writer" },
+              { value: "Translator", label: "Translator" },
 
-            { value: "Online volunteer", label: "Online Volunteer" },
+              { value: "Online volunteer", label: "Online Volunteer" },
 
-            { value: "Event Management", label: "Event Management" },
-            { value: "Fundraising", label: "Fundraising" },
-            { value: "Other", label: "Other" }
-          ]}
+              { value: "Event Management", label: "Event Management" },
+              { value: "Fundraising", label: "Fundraising" },
+              { value: "Other", label: "Other" }
+            ]}
           />
 
           <Input
@@ -275,12 +275,16 @@ function ProfilePage() {
             onChange={e => set('subSkills', e.target.value)}
           />
 
-          <textarea
-            value={form.bio}
-            onChange={e => set('bio', e.target.value)}
-            placeholder="Bio"
-            style={{ width: '100%', marginTop: 10, padding: 10 }}
-          />
+          <div className={styles.field}>
+            <label className={styles.label}>Bio</label>
+
+            <textarea
+              className={styles.textarea}
+              value={form.bio}
+              onChange={e => set('bio', e.target.value)}
+              placeholder="Enter your bio"
+            />
+          </div>
 
           <Select
             label="Availability"
@@ -291,42 +295,47 @@ function ProfilePage() {
               { value: "false", label: "🔴 Not Available" }
             ]}
           />
-        </>
+        </div>
       )}
 
-      {/* ================= COMMON FIELDS ================= */}
+      {/* ================= COMMON ================= */}
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Contact & Location</div>
 
-      <Autocomplete
-        onLoad={(ref) => (autoRef.current = ref)}
-        onPlaceChanged={handlePlaceSelect}
-      >
+        <Autocomplete
+          onLoad={(ref) => (autoRef.current = ref)}
+          onPlaceChanged={handlePlaceSelect}
+        >
+          <Input
+            label="Location"
+            value={form.location}
+            onChange={e => {
+              set('location', e.target.value);
+              setCoords({ lat: null, lng: null });
+            }}
+          />
+        </Autocomplete>
+
         <Input
-          label="Location"
-          value={form.location}
-          onChange={e => {
-            set('location', e.target.value);
-            setCoords({ lat: null, lng: null });
-          }}
+          label="Phone"
+          value={form.phone}
+          onChange={e => set('phone', e.target.value)}
         />
-      </Autocomplete>
 
-      <Input
-        label="Phone"
-        value={form.phone}
-        onChange={e => set('phone', e.target.value)}
-      />
+        <Input
+          label="Proof URL"
+          value={form.proofUrl}
+          onChange={e => set('proofUrl', e.target.value)}
+        />
+      </div>
 
-      <Input
-        label="Proof URL"
-        value={form.proofUrl}
-        onChange={e => set('proofUrl', e.target.value)}
-      />
-
-      <Button onClick={handleSave} style={{ width: '100%', marginTop: 20 }}>
+      <Button onClick={handleSave} className={styles.saveBtn}>
         💾 Save Changes
       </Button>
+
     </div>
-  );
+  </div>
+);
 }
 
 export default ProfilePage;
