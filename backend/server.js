@@ -9,9 +9,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ mount all routes under /api
+// ✅ root route FIRST
+app.get("/", (req, res) => {
+  res.send("SmartAid Backend is running 🚀");
+});
+
+// ✅ mount routes
 app.use("/api", apiRoutes);
 
-app.listen(5000, () => {
-  console.log("🚀 Server running on port 5000");
+// 🔥 IMPORTANT: use dynamic PORT
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });

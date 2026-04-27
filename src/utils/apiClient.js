@@ -1,5 +1,6 @@
+const API_BASE = process.env.REACT_APP_API_URL;
 export async function parseNeed(text) {
-  const res = await fetch("http://localhost:5000/api/ai/parse-need", {
+  const res = await fetch(`${API_BASE}/api/ai/parse-need`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text })
@@ -7,7 +8,7 @@ export async function parseNeed(text) {
 
   if (!res.ok) {
     const t = await res.text();
-    console.error(t);
+    console.error("API ERROR:", t);
     throw new Error("API failed");
   }
 

@@ -387,12 +387,26 @@ export function AppProvider({ children }) {
 
     const needData = snap.data();
 
-    // ✅ update need
-    await updateDoc(needRef, {
-      status,
-      completedAt: status === "Completed" ? new Date() : null
-    });
+    // 🔥 CALL BACKEND FOR EMAIL
+    if (status === "Completed") {
+      await fetch(`${process.env.REACT_APP_API_URL}/api/complete-need`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id,
+          need: needData
+        })
+      });
+    } else {
+      // normal update for other statuses
+      await updateDoc(needRef, {
+        status
+      });
+    }
 
+    // 🔽 KEEP YOUR EXISTING VOLUNTEER UPDATE LOGIC
     if (status === "Completed") {
 
       const volunteers = needData.assignedTo || [];
@@ -401,10 +415,7 @@ export function AppProvider({ children }) {
 
         const uid = String(typeof v === "object" ? v.uid : v);
 
-
-        // 🔥 STRICT MATCH FIX
         const ratingObj = ratings.find(r => String(r.uid) === uid);
-
 
         const userRef = doc(db, "users", uid);
 
@@ -419,9 +430,7 @@ export function AppProvider({ children }) {
           let totalRatings = data.totalRatings || 0;
           let rating = data.rating || 0;
 
-          // ⭐ APPLY RATING ONLY IF EXISTS
           if (ratingObj && ratingObj.rating) {
-
             totalRatings += 1;
 
             rating =
@@ -431,7 +440,6 @@ export function AppProvider({ children }) {
             rating = Math.round(rating * 10) / 10;
           }
 
-          // 🔥 UPDATE USER DOC
           transaction.update(userRef, {
             available: true,
             tasksCompleted,

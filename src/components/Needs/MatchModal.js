@@ -22,50 +22,28 @@ function MatchModal({ open, onClose, need, matches, onAssign }) {
     });
   };
 
-  // 🔥 ONLY AVAILABLE VOLUNTEERS
-  const getValidSkills = (type) => {
-  type = (type || '').toLowerCase();
+  // 🔥 STRICT ROLE MATCH ONLY
+  const requiredRole = (need.role || "").toLowerCase().trim();
 
-  if (type.includes('medical')) {
-    return ['doctor', 'nurse', 'surgery', 'first aid'];
-  }
-  if (type.includes('education')) {
-    return ['teacher', 'teaching'];
-  }
-  if (type.includes('food')) {
-    return ['cook', 'delivery', 'food'];
-  }
-  if (type.includes('water')) {
-    return ['logistics', 'field', 'water'];
-  }
+  const availableMatches = matches.filter(v => {
+    if (v.available === false) return false;
 
-  return [];
-};
+    const skill = (v.skill || "").toLowerCase().trim();
 
-const validSkills = getValidSkills(need.type);
-
-// 🔥 FINAL FILTER
-const availableMatches = matches.filter(v => {
-  if (v.available === false) return false;
-
-  const skill = (v.skill || '').toLowerCase();
-
-  if (validSkills.length === 0) return true;
-
-  return validSkills.some(s =>
-    skill.includes(s) || s.includes(skill)
-  );
-});
+    return skill === requiredRole;
+  });
 
   return (
     <Modal open={open} onClose={onClose} title="🤖 AI Match Results" width={520}>
 
       <div className={styles.needBox}>
-        <span className={styles.needIcon}>{TYPE_ICONS[need.type]}</span>
+        <span className={styles.needIcon}>
+          {TYPE_ICONS[need.type] || '📌'}
+        </span>
         <div>
           <div className={styles.needTitle}>{need.title}</div>
           <div className={styles.needMeta}>
-            {need.location} · 
+            {need.location || 'No location'} · 
             <Badge text={need.urgency} color={URGENCY_COLORS[need.urgency]} size="sm" />
           </div>
         </div>
@@ -77,7 +55,7 @@ const availableMatches = matches.filter(v => {
 
       {availableMatches.length === 0 && (
         <div className={styles.empty}>
-          No available volunteers found.
+          No exact role volunteers found.
         </div>
       )}
 
@@ -99,8 +77,8 @@ const availableMatches = matches.filter(v => {
             <div
               className={styles.avatar}
               style={{
-                background: SKILL_COLORS[v.skill] + '33',
-                color: SKILL_COLORS[v.skill]
+                background: (SKILL_COLORS[v.skill] || "#888") + '33',
+                color: SKILL_COLORS[v.skill] || "#888"
               }}
             >
               {v.avatar}
@@ -121,12 +99,6 @@ const availableMatches = matches.filter(v => {
                 <span>{v.distance} km away</span>
                 <span>·</span>
                 <span>{v.tasksCompleted} tasks done</span>
-              </div>
-
-              <div className={styles.volMeta}>
-                {v.skillMatch === 'exact' && '🎯 Perfect skill match'}
-                {v.skillMatch === 'partial' && '⚡ Related skill'}
-                {v.skillMatch === 'none' && '📍 Nearby support'}
               </div>
             </div>
 

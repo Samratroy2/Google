@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Badge from '../UI/Badge';
 import Button from '../UI/Button';
 import {
@@ -10,11 +10,17 @@ import styles from './NeedCard.module.css';
 
 function NeedCard({ need, onStatusChange, currentUser }) {
 
+  // 🔥 LOCAL STATE FOR INSTANT UI UPDATE
+  const [localCompleted, setLocalCompleted] = useState(false);
+
   const needType = need.category || need.type || 'Other';
   const required = need.requiredVolunteers || 1;
   const assignedCount = need.assignedTo?.length || 0;
   const isFull = assignedCount >= required;
-  const isCompleted = need.status === 'Completed';
+
+  // ✅ FIXED STATUS CHECK (CASE SAFE + LOCAL STATE)
+  const isCompleted =
+    localCompleted || (need.status || "").toLowerCase() === "completed";
 
   const userEmail = currentUser?.email;
 
@@ -39,15 +45,14 @@ function NeedCard({ need, onStatusChange, currentUser }) {
 
   const isVolunteer = assignedEmails.includes(userEmail);
 
-  // 📧 EMAIL FUNCTION
+  // 📧 EMAIL FUNCTION (PRODUCTION SAFE)
   const sendEmailToCreator = async () => {
     try {
-      if (!creatorEmail) {
-        console.warn("⚠️ No creator email");
-        return;
-      }
+      if (!creatorEmail) return;
 
-      const res = await fetch("http://localhost:5000/api/chat/send-email", {
+      const API_BASE = process.env.REACT_APP_API_URL;
+
+      const res = await fetch(`${API_BASE}/api/chat/send-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -59,10 +64,8 @@ function NeedCard({ need, onStatusChange, currentUser }) {
         })
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        console.error("❌ Email failed:", data);
+        console.error("❌ Email failed");
       } else {
         console.log("📧 Email sent successfully");
       }
@@ -72,17 +75,23 @@ function NeedCard({ need, onStatusChange, currentUser }) {
     }
   };
 
-  // ✅ COMPLETE FLOW (FINAL FIX)
+  // ✅ COMPLETE HANDLER (FINAL FIX)
   const handleComplete = async () => {
+
+    // 🔥 PREVENT DOUBLE CLICK
+    if (isCompleted) return;
 
     if (!isOwner && !isVolunteer) {
       alert("Not allowed");
       return;
     }
 
+    // ⚡ INSTANT UI UPDATE
+    setLocalCompleted(true);
+
     const volunteers = need.assignedTo || [];
 
-    // 🧑‍💼 OWNER → collect ratings
+    // 🧑‍💼 OWNER → GIVE RATINGS
     if (isOwner) {
 
       if (volunteers.length === 0) {
@@ -100,7 +109,7 @@ function NeedCard({ need, onStatusChange, currentUser }) {
         let input = prompt(`Rate ${name} (1-5):`);
 
         if (input === null) {
-          alert("Rating cancelled");
+          setLocalCompleted(false); // rollback
           return;
         }
 
@@ -108,31 +117,29 @@ function NeedCard({ need, onStatusChange, currentUser }) {
 
         if (!rating || rating < 1 || rating > 5) {
           alert("Invalid rating (1-5 only)");
+          setLocalCompleted(false); // rollback
           return;
         }
 
         ratings.push({
-          uid: String(uid),   // 🔥 IMPORTANT
+          uid: String(uid),
           rating
         });
       }
 
-      // ✅ ALWAYS PASS RATINGS
       if (typeof onStatusChange === "function") {
         onStatusChange(need.id, "Completed", ratings);
       }
     }
 
-    // 🙋 VOLUNTEER → no ratings
+    // 🙋 VOLUNTEER → COMPLETE + EMAIL
     else if (isVolunteer) {
 
       if (typeof onStatusChange === "function") {
-        onStatusChange(need.id, "Completed", []); // ✅ MUST pass empty array
+        onStatusChange(need.id, "Completed", []);
       }
 
-      if (creatorEmail) {
-        await sendEmailToCreator();
-      }
+      await sendEmailToCreator();
     }
   };
 
@@ -199,7 +206,7 @@ function NeedCard({ need, onStatusChange, currentUser }) {
             <Button
               size="sm"
               variant="success"
-              disabled={!isOwner && !isVolunteer}
+              disabled={isCompleted || (!isOwner && !isVolunteer)}
               onClick={handleComplete}
             >
               Complete
@@ -208,7 +215,7 @@ function NeedCard({ need, onStatusChange, currentUser }) {
 
           {isCompleted && (
             <span style={{ color: '#22c55e' }}>
-              Task Completed
+              ✔ Task Completed
             </span>
           )}
 
