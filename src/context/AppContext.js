@@ -318,7 +318,7 @@ export function AppProvider({ children }) {
     await logActivity("📦 Created a need");
   }, [user, logActivity, addNotification]);
 
-    // ✅ DELETE NEED (PLACE HERE, NOT INSIDE ANY FUNCTION)
+  // ✅ DELETE NEED (PLACE HERE, NOT INSIDE ANY FUNCTION)
   const deleteNeed = useCallback(async (id) => {
     try {
       await deleteDoc(doc(db, "needs", id));
@@ -329,6 +329,51 @@ export function AppProvider({ children }) {
     }
   }, [logActivity]);
 
+  // ✅ DELETE USER (SOFT DELETE)
+  const deleteUserAccount = useCallback(async (uid) => {
+    try {
+      // soft delete (recommended)
+      await updateDoc(doc(db, "users", uid), {
+        status: "deleted",
+        available: false
+      });
+
+      await logActivity("❌ Deleted user account");
+    } catch (err) {
+      console.error("Delete user error:", err);
+      throw err;
+    }
+  }, [logActivity]);
+
+  // ✅ BLOCK USER
+  const blockUser = useCallback(async (uid) => {
+    try {
+      await updateDoc(doc(db, "users", uid), {
+        status: "blocked",
+        available: false
+      });
+
+      await logActivity("🚫 Blocked user");
+    } catch (err) {
+      console.error("Block user error:", err);
+      throw err;
+    }
+  }, [logActivity]);
+
+  // ✅ UNBLOCK USER
+  const unblockUser = useCallback(async (uid) => {
+    try {
+      await updateDoc(doc(db, "users", uid), {
+        status: "approved",
+        available: true
+      });
+
+      await logActivity("🔓 Unblocked user");
+    } catch (err) {
+      console.error("Unblock error:", err);
+      throw err;
+    }
+  }, [logActivity]);
 
 
   // ✅  (UNCHANGED)
@@ -424,7 +469,10 @@ export function AppProvider({ children }) {
       logout,
       logActivity,
       updateUser,
-      deleteNeed
+      deleteNeed,
+      deleteUserAccount,
+      blockUser,
+      unblockUser
     }}>
       {children}
     </AppContext.Provider>
