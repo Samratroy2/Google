@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
 import Input from '../components/UI/Input';
 import Select from '../components/UI/Select';
-import styles from './PostNeedPage.module.css';
+import styles from './Loginpage.module.css';
 
 // ✅ ADD
 import { sendEmailVerification } from "firebase/auth";
@@ -83,7 +83,7 @@ function RegisterPage() {
 
         <div className={styles.formActions}>
           <Button onClick={handleRegister}>
-            🚀 Create Account
+            Create Account
           </Button>
         </div>
 

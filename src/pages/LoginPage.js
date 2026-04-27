@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Button from '../components/UI/Button';
 import Input from '../components/UI/Input';
 import { toast } from 'react-toastify';
-import styles from './PostNeedPage.module.css';
+import styles from './Loginpage.module.css';
 
 // ✅ ADD
 import { auth } from "../firebase";
@@ -85,7 +85,7 @@ function LoginPage() {
         className={styles.formCard}
         style={{ maxWidth: 420, margin: '80px auto' }}
       >
-        <h2 className={styles.formTitle}>🔐 Login</h2>
+        <h2 className={styles.formTitle}>Login</h2>
 
         <Input
           label="Email"
@@ -104,7 +104,7 @@ function LoginPage() {
 
         <div className={styles.formActions}>
           <Button onClick={handleLogin} disabled={loading}>
-            {loading ? "Logging in..." : "🚀 Login"}
+            {loading ? "Logging in..." : "Login"}
           </Button>
         </div>
 

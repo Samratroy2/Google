@@ -146,9 +146,11 @@ function NeedsPage() {
           <p className={styles.sub}>{filtered.length} requests found</p>
         </div>
 
-        <Button onClick={() => navigate('/needs/post')}>
-          + Post Need
-        </Button>
+        {currentUser?.role === "NGO" && (
+          <Button onClick={() => navigate('/needs/post')}>
+            + Post Need
+          </Button>
+        )}
       </div>
 
       <div className={styles.filters}>
