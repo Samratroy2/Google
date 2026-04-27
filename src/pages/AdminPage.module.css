@@ -3,12 +3,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 25px;
 }
 
 .title {
   font-size: 28px;
-  font-weight: 900;
+  font-weight: 800;
   color: var(--text);
 }
 
@@ -19,186 +19,330 @@
 }
 
 .adminBadge {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
   color: #fff;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* ================= TABS ================= */
 .tabs {
   display: flex;
-  gap: 6px;
-  margin-bottom: 26px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 6px;
-  width: fit-content;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .tab {
-  padding: 8px 18px;
+  padding: 8px 14px;
   border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--card);
   cursor: pointer;
+  font-size: 14px;
   transition: all 0.2s ease;
+  color: rgb(149, 148, 148);
 }
 
 .tab:hover {
-  color: var(--text);
+  background: var(--surface);
 }
 
 .tabActive {
-  background: var(--card);
-  color: var(--text);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
-/* ================= TABLE CARD ================= */
+/* ================= STATS ================= */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* ================= CARD ================= */
 .tableCard {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 24px;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+.cardTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 14px;
 }
 
 /* ================= TABLE ================= */
-.tableWrap {
-  overflow-x: auto;
-  margin-top: 10px;
-}
-
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 700px;
-}
-
-/* HEADER */
-.table thead {
-  background: var(--surface);
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  font-size: 15px;
 }
 
 .table th {
-  padding: 14px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
   text-align: left;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
   border-bottom: 1px solid var(--border);
 }
 
-/* ROW */
-.table tr {
+.table td {
+  padding: 10px;
   border-bottom: 1px solid var(--border);
-  transition: 0.2s;
+  color: var(--text);
 }
 
 .table tr:hover {
-  background: rgba(255,255,255,0.04);
-}
-
-/* CELL */
-.table td {
-  padding: 14px 16px;
-  font-size: 14px;
-  color: var(--text);
-}
-
-/* ================= BADGE ================= */
-.badgeApproved {
-  background: rgba(34,197,94,0.12);
-  color: #22c55e;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.badgePending {
-  background: rgba(249,115,22,0.12);
-  color: #f97316;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  background: rgba(99, 102, 241, 0.05);
 }
 
 /* ================= ACTION BUTTONS ================= */
-.actions {
+.actionCell {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-/* Block Button */
-.btnBlock {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+/* BASE BUTTON */
+.btn {
+  padding: 6px 12px;
+  border-radius: 8px;
   border: none;
-  color: white;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.25s ease;
 }
 
-.btnBlock:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(99,102,241,0.4);
+/* ✅ APPROVE */
+button.approve {
+  background: #6366f1;
+  color: #fff;
+}
+button.approve:hover {
+  background: #4f46e5;
 }
 
-/* Delete Button */
-.btnDelete {
-  background: rgba(239,68,68,0.12);
-  color: #ef4444;
-  border: 1px solid rgba(239,68,68,0.3);
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s;
+/* ❌ REJECT */
+button.reject {
+  background: #fee2e2;
+  color: #b91c1c;
 }
-
-.btnDelete:hover {
+button.reject:hover {
   background: #ef4444;
-  color: white;
+  color: #fff;
 }
 
-/* ================= USERS SECTION FIX ================= */
-.sectionTitle {
-  font-size: 16px;
-  font-weight: 800;
-  margin: 16px 0 8px;
+/* DELETE */
+.deleteBtn {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.deleteBtn:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* BLOCK */
+.blockBtn {
+  background: #fef3c7;
+  color: #b45309;
+}
+.blockBtn:hover {
+  background: #f59e0b;
+  color: #fff;
+}
+
+/* UNBLOCK */
+.unblockBtn {
+  background: #dcfce7;
+  color: #15803d;
+}
+.unblockBtn:hover {
+  background: #22c55e;
+  color: #fff;
+}
+
+/* ================= LINKS ================= */
+.table a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.table a:hover {
+  text-decoration: underline;
+}
+
+/* ================= OVERVIEW ================= */
+.overviewWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* HERO */
+.heroCard {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  padding: 20px;
+  border-radius: 16px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.heroStats {
+  display: flex;
+  gap: 30px;
+}
+
+.heroStats h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* GRID */
+.overviewGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+/* ================= ACTIVITY ================= */
+.activityFeed {
+  background: var(--card);
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: 1.5fr 2fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.activityItem:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.activityEmail {
+  font-weight: 600;
+  color: #a5b4fc;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityItem span:nth-child(2) {
   color: var(--text);
+  font-size: 13px;
+}
+
+.activityItem small {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* ================= RIGHT PANEL ================= */
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* BAR */
+.barWrapper {
+  background: #111;
+  padding: 6px;
+  border-radius: 10px;
+}
+
+.bar {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pending { background: #f97316; }
+.assigned { background: #3b82f6; }
+.completed { background: #22c55e; }
+
+/* ================= PROGRESS ================= */
+.progressCard {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.progressCircle {
+  position: relative;
+  width: 110px;
+  margin: auto;
+}
+
+.progressCircle svg {
+  transform: rotate(-90deg);
+}
+
+.progressText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 700;
+}
+
+/* SVG */
+.bg {
+  fill: none;
+  stroke: #1f2937;
+  stroke-width: 3;
+}
+
+.progress {
+  fill: none;
+  stroke: #6366f1;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
 }
 
 /* ================= RESPONSIVE ================= */
 @media (max-width: 768px) {
-  .table {
-    min-width: 600px;
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
-  .title {
-    font-size: 22px;
+  .overviewGrid {
+    grid-template-columns: 1fr;
   }
-}
 
-.actionCell {
-  padding: 10px 12px;      /* inner spacing */
-  display: flex;
-  gap: 8px;                /* space between buttons */
-  align-items: center;
+  .actionCell {
+    flex-direction: column;
+  }
+
+  .activityItem {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
 }

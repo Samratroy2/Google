@@ -138,14 +138,107 @@ function AdminPage() {
 
       {/* ================= OVERVIEW ================= */}
       {tab === 'Overview' && (
-        <div className={styles.statsGrid}>
-          <StatCard icon="📋" label="Total Needs" value={total} color="#6366f1" />
-          <StatCard icon="⏳" label="Pending" value={pending} color="#f97316" />
-          <StatCard icon="🔄" label="Assigned" value={assigned} color="#3b82f6" />
-          <StatCard icon="✅" label="Completed" value={completed} color="#22c55e" />
-          <StatCard icon="🙋" label="Volunteers" value={totalVols} color="#8b5cf6" />
-          <StatCard icon="🟢" label="Available" value={available} color="#22c55e" />
-          <StatCard icon="📈" label="Completion Rate" value={`${rate}%`} color="#f59e0b" />
+        <div className={styles.overviewWrapper}>
+
+          {/* HERO */}
+          <div className={styles.heroCard}>
+            <div>
+              <h2>🚀 System Status</h2>
+              <p>All systems running smoothly</p>
+            </div>
+
+            <div className={styles.heroStats}>
+              <div>
+                <h3>{total}</h3>
+                <span>Total Needs</span>
+              </div>
+              <div>
+                <h3>{completed}</h3>
+                <span>Completed</span>
+              </div>
+              <div>
+                <h3>{available}</h3>
+                <span>Available</span>
+              </div>
+            </div>
+          </div>
+
+          {/* MAIN STATS */}
+          <div className={styles.statsGrid}>
+            <StatCard icon="📋" label="Total Needs" value={total} color="#6366f1" />
+            <StatCard icon="⏳" label="Pending" value={pending} color="#f97316" />
+            <StatCard icon="🔄" label="Assigned" value={assigned} color="#3b82f6" />
+            <StatCard icon="🙋" label="Volunteers" value={totalVols} color="#8b5cf6" />
+          </div>
+
+          {/* GRID */}
+          <div className={styles.overviewGrid}>
+
+            {/* LEFT: ACTIVITY */}
+            <div className={styles.activityFeed}>
+              <h3>🔥 Live Activity</h3>
+
+              {activities.slice(0, 6).map(a => (
+                <div key={a.id} className={styles.activityItem}>
+                  <span className={styles.activityEmail}>{a.email}</span>
+                  <span>{a.action}</span>
+                  <small>
+                    {a.createdAt?.toDate?.().toLocaleTimeString()}
+                  </small>
+                </div>
+              ))}
+            </div>
+
+            {/* RIGHT */}
+            <div className={styles.rightPanel}>
+
+              {/* BAR CHART */}
+              <div className={styles.miniChart}>
+                <h3>📊 Needs Status</h3>
+
+                <div className={styles.barWrapper}>
+                  <div className={styles.bar}>
+                    <div
+                      style={{ width: `${(pending / total) * 100 || 0}%` }}
+                      className={styles.pending}
+                    />
+                    <div
+                      style={{ width: `${(assigned / total) * 100 || 0}%` }}
+                      className={styles.assigned}
+                    />
+                    <div
+                      style={{ width: `${(completed / total) * 100 || 0}%` }}
+                      className={styles.completed}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* PROGRESS */}
+              <div className={styles.progressCard}>
+                <div className={styles.progressCircle}>
+                  <svg viewBox="0 0 36 36">
+                    <path
+                      className={styles.bg}
+                      d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className={styles.progress}
+                      strokeDasharray={`${rate}, 100`}
+                      d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className={styles.progressText}>{rate}%</div>
+                </div>
+                <p>Completion Rate</p>
+              </div>
+
+            </div>
+          </div>
         </div>
       )}
 
@@ -180,12 +273,12 @@ function AdminPage() {
                     <td>{u.organization || '-'}</td>
                     <td>{renderProof(u.proofUrl)}</td> {/* added */}
 
-                    <td>
-                      <Button onClick={() => handleApprove(u.uid)}>
+                    <td className={styles.actionCell}>
+                      <Button className={styles.approve} onClick={() => handleApprove(u.uid)}>
                         Approve
                       </Button>
 
-                      <Button onClick={() => handleDeleteUser(u.uid)}>
+                      <Button className={styles.reject} onClick={() => handleDeleteUser(u.uid)}>
                         Reject
                       </Button>
                     </td>
@@ -305,26 +398,37 @@ function AdminPage() {
                     />
                   </td>
 
-                  <td>
+
+                  <td className={styles.actionCell}>
                     {u.status === 'approved' && (
-                      <Button onClick={() => handleBlockUser(u.uid)}>
+                      <Button
+                        className={`${styles.btn} ${styles.blockBtn}`}
+                        disabled={u.uid === user.uid}
+                        onClick={() => handleBlockUser(u.uid)}
+                      >
                         Block
                       </Button>
                     )}
 
                     {u.status === 'blocked' && (
-                      <Button onClick={() => handleUnblockUser(u.uid)}>
+                      <Button
+                        className={`${styles.btn} ${styles.unblockBtn}`}
+                        disabled={u.uid === user.uid}
+                        onClick={() => handleUnblockUser(u.uid)}
+                      >
                         Unblock
                       </Button>
                     )}
 
                     <Button
+                      className={`${styles.btn} ${styles.deleteBtn}`}
                       disabled={u.uid === user.uid}
                       onClick={() => handleDeleteUser(u.uid)}
                     >
                       Delete
                     </Button>
-                  </td>
+                  </td>                 
+                
                 </tr>
               ))}
             </tbody>
@@ -410,8 +514,7 @@ function AdminPage() {
           )}
         </div>
       )}
-
-    </div>
+    </div>    
   );
 }
 

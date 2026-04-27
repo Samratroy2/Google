@@ -168,14 +168,6 @@ function ProfilePage() {
       </div>
 
       <div className={styles.field}>
-        <Input
-          label="Username"
-          value={form.username}
-          onChange={e => set('username', e.target.value)}
-        />
-      </div>
-
-      <div className={styles.field}>
         <Input label="Email" value={form.email} disabled />
       </div>
 
@@ -189,6 +181,14 @@ function ProfilePage() {
             value={form.organizationName}
             onChange={e => set('organizationName', e.target.value)}
           />
+
+          <div className={styles.field}>
+            <Input
+              label="Username"
+              value={form.username}
+              onChange={e => set('username', e.target.value)}
+            />
+          </div>
 
           <Input
             label="Registration Number"
@@ -208,18 +208,31 @@ function ProfilePage() {
             onChange={e => set('foundedYear', e.target.value)}
           />
 
-          <textarea
-            className={styles.textarea}
-            value={form.bio}
-            onChange={e => set('bio', e.target.value)}
-            placeholder="About Organization"
-          />
+          <div className={styles.field}>
+            <label className={styles.label}>Bio</label>
+
+            <textarea
+              className={styles.textarea}
+              value={form.bio}
+              onChange={e => set('bio', e.target.value)}
+              placeholder="About Organization"
+            />
+          </div>
+
         </div>
       ) : (
         <div className={styles.section}>
           <div className={styles.sectionTitle}>Volunteer Details</div>
 
           {/* ================= VOLUNTEER FORM (UNCHANGED) ================= */}
+
+          <div className={styles.field}>
+            <Input
+              label="Username"
+              value={form.username}
+              onChange={e => set('username', e.target.value)}
+            />
+          </div>
 
           <Select
             label="Hobby"

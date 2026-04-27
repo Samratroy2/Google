@@ -191,7 +191,7 @@ function NeedCard({ need, onStatusChange, currentUser }) {
 
           {!isCompleted && !isFull && (
             <span style={{ color: '#f59e0b' }}>
-              🤖 Finding Volunteers...
+              Finding Volunteers...
             </span>
           )}
 
@@ -202,13 +202,13 @@ function NeedCard({ need, onStatusChange, currentUser }) {
               disabled={!isOwner && !isVolunteer}
               onClick={handleComplete}
             >
-              ✅ Complete
+              Complete
             </Button>
           )}
 
           {isCompleted && (
             <span style={{ color: '#22c55e' }}>
-              ✅ Task Completed
+              Task Completed
             </span>
           )}
 
