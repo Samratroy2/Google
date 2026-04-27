@@ -66,6 +66,18 @@ export function AppProvider({ children }) {
     }
   }, [user]);
 
+
+  
+  const updateUser = useCallback(async (uid, data) => {
+    try {
+      await updateDoc(doc(db, "users", uid), data);
+      await logActivity("✏️ Updated profile", data.email);
+    } catch (err) {
+      console.error("Update user error:", err);
+      throw err;
+    }
+  }, [logActivity]);
+
   // 🔐 AUTH
   const signup = async (email, password, role = "General", name = "") => {
     const res = await createUserWithEmailAndPassword(auth, email, password);
@@ -399,7 +411,8 @@ export function AppProvider({ children }) {
       login,
       signup,
       logout,
-      logActivity
+      logActivity,
+      updateUser
     }}>
       {children}
     </AppContext.Provider>
