@@ -55,26 +55,32 @@ function LoginPage() {
 
       navigate('/dashboard');
 
-    } catch (err) {
-      console.error(err);
+    } 
 
-      if (err.message === "blocked") {
-        toast.error("🚫 You are blocked by admin");
-      }
-      else if (err.message === "deleted") {
-        toast.error("❌ Your account was deleted");
-      }
-      else if (err.code === "auth/wrong-password") {
-        toast.error("❌ Wrong password");
-      }
-      else if (err.code === "auth/user-not-found") {
-        toast.error("❌ User not found");
-      }
-      else {
-        toast.error(err.message || "Login failed");
-      }
+    catch (err) {
+  console.error(err);
 
-    } finally {
+  if (
+    err.code === "auth/wrong-password" ||
+    err.code === "auth/invalid-credential"
+  ) {
+    toast.error("❌ Invalid email or password");
+  }
+  else if (err.code === "auth/user-not-found") {
+    toast.error("❌ User not found");
+  }
+  else if (err.message === "blocked") {
+    toast.error("🚫 You are blocked by admin");
+  }
+  else if (err.message === "deleted") {
+    toast.error("❌ Your account was deleted");
+  }
+  else {
+    toast.error("Login failed");
+  }
+}
+
+    finally {
       setLoading(false);
     }
   };
