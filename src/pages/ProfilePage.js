@@ -228,47 +228,47 @@ function ProfilePage() {
             options={[
               { value: "", label: "Select your skill" },
 
-              { value: "Doctor", label: "Doctor" },
-              { value: "Nurse", label: "Nurse" },
-              { value: "Paramedic", label: "Paramedic" },
-              { value: "Pharmacist", label: "Pharmacist" },
+              { value: "doctor", label: "Doctor" },
+              { value: "nurse", label: "Nurse" },
+              { value: "paramedic", label: "Paramedic" },
+              { value: "pharmacist", label: "Pharmacist" },
 
-              { value: "Counseling", label: "Counselor" },
-              { value: "Caregiver", label: "Caregiver" },
-              { value: "Childcare", label: "Childcare Support" },
+              { value: "counseling", label: "Counselor" },
+              { value: "caregiver", label: "Caregiver" },
+              { value: "childcare", label: "Childcare Support" },
 
-              { value: "Teacher", label: "Teacher" },
-              { value: "Tutor", label: "Tutor" },
-              { value: "Trainer", label: "Trainer" },
+              { value: "teacher", label: "Teacher" },
+              { value: "tutor", label: "Tutor" },
+              { value: "trainer", label: "Trainer" },
 
-              { value: "Logistics", label: "Logistics" },
-              { value: "Driver", label: "Driver" },
-              { value: "Field worker", label: "Field Worker" },
-              { value: "Delivery", label: "Delivery Support" },
+              { value: "logistics", label: "Logistics" },
+              { value: "driver", label: "Driver" },
+              { value: "field worker", label: "Field Worker" },
+              { value: "delivery", label: "Delivery Support" },
 
-              { value: "Cook", label: "Cook" },
-              { value: "Food distribution", label: "Food Distribution" },
+              { value: "cook", label: "Cook" },
+              { value: "food distribution", label: "Food Distribution" },
 
-              { value: "IT Support", label: "IT Support" },
-              { value: "Web Developer", label: "Web Developer" },
-              { value: "Data Entry", label: "Data Entry" },
+              { value: "it support", label: "IT Support" },
+              { value: "web developer", label: "Web Developer" },
+              { value: "data entry", label: "Data Entry" },
 
-              { value: "Lawyer", label: "Lawyer" },
-              { value: "Documentation", label: "Documentation" },
-              { value: "Admin Support", label: "Admin Support" },
+              { value: "lawyer", label: "Lawyer" },
+              { value: "documentation", label: "Documentation" },
+              { value: "admin support", label: "Admin Support" },
 
-              { value: "Social Media", label: "Social Media Manager" },
-              { value: "Content Writing", label: "Content Writer" },
-              { value: "Translator", label: "Translator" },
+              { value: "social media", label: "Social Media Manager" },
+              { value: "content writing", label: "Content Writer" },
+              { value: "translator", label: "Translator" },
 
-              { value: "Online volunteer", label: "Online Volunteer" },
+              { value: "online volunteer", label: "Online Volunteer" },
 
-              { value: "Event Management", label: "Event Management" },
-              { value: "Fundraising", label: "Fundraising" },
-              { value: "Other", label: "Other" }
+              { value: "event management", label: "Event Management" },
+              { value: "fundraising", label: "Fundraising" },
+              { value: "other", label: "Other" }
             ]}
           />
-
+          
           <Input
             label="Sub Skills"
             value={form.subSkills}

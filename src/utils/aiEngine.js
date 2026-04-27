@@ -41,10 +41,15 @@ export const normalizeType = (t) => {
 // 🎯 SKILL MAP
 // ═════════════════════════════════════════════
 export const skillMap = {
-  Medical: ['doctor', 'nurse'],
-  Food: ['cook', 'delivery'],
-  Water: ['logistics', 'field worker'],
-  Education: ['teacher']
+  Medical: ['doctor', 'nurse', 'paramedic', 'pharmacist'],
+  Food: ['cook', 'food distribution', 'delivery'],
+  Water: ['logistics', 'field worker', 'driver'],
+  Education: ['teacher', 'tutor', 'trainer'],
+  Technical: ['it support', 'web developer', 'data entry'],
+  Legal: ['lawyer', 'documentation'],
+  Support: ['caregiver', 'childcare', 'counseling'],
+  Media: ['social media', 'content writing', 'translator'],
+  Events: ['event management', 'fundraising']
 };
 
 // ═════════════════════════════════════════════
@@ -111,6 +116,7 @@ export function aiMatchVolunteers(need, users) {
     .filter(Boolean) // 🔥 remove nulls
     .sort((a, b) => b.matchScore - a.matchScore);
 }
+
 // ═════════════════════════════════════════════
 // 🧠 GLOBAL ASSIGNMENT ENGINE (NO DUPLICATION)
 // ═════════════════════════════════════════════
