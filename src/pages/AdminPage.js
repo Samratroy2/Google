@@ -210,6 +210,7 @@ function AdminPage() {
                 <th>Email</th>
                 <th>Skill</th>
                 <th>Location</th>
+                <th>Proof</th> {/* added */}
                 <th>Status</th>
               </tr>
             </thead>
@@ -220,6 +221,7 @@ function AdminPage() {
                   <td>{v.email}</td>
                   <td>{v.skill || '-'}</td>
                   <td>{v.location || '-'}</td>
+                  <td>{renderProof(v.proofUrl)}</td> {/* added */}
                   <td>
                     <Badge
                       text={v.available ? "Available" : "Busy"}

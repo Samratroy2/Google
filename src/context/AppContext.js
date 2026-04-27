@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useEffect
 } from 'react';
-
+import { deleteDoc } from "firebase/firestore";
 import { db, auth } from '../firebase';
 
 import {
@@ -66,8 +66,6 @@ export function AppProvider({ children }) {
     }
   }, [user]);
 
-
-  
   const updateUser = useCallback(async (uid, data) => {
     try {
       await updateDoc(doc(db, "users", uid), data);
@@ -320,6 +318,19 @@ export function AppProvider({ children }) {
     await logActivity("📦 Created a need");
   }, [user, logActivity, addNotification]);
 
+    // ✅ DELETE NEED (PLACE HERE, NOT INSIDE ANY FUNCTION)
+  const deleteNeed = useCallback(async (id) => {
+    try {
+      await deleteDoc(doc(db, "needs", id));
+      await logActivity("🗑️ Deleted a need");
+    } catch (err) {
+      console.error("Delete need error:", err);
+      throw err;
+    }
+  }, [logActivity]);
+
+
+
   // ✅  (UNCHANGED)
   const updateNeedStatus = useCallback(async (id, status, ratings = []) => {
   try {
@@ -412,7 +423,8 @@ export function AppProvider({ children }) {
       signup,
       logout,
       logActivity,
-      updateUser
+      updateUser,
+      deleteNeed
     }}>
       {children}
     </AppContext.Provider>
