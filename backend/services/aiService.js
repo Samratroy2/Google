@@ -20,7 +20,16 @@ const cache = new Map();
 // ================= CHAT AI =================
 export async function askAI(message) {
   try {
-    if (cache.has(message)) return cache.get(message);
+    if (!message) return "Please enter a message.";
+
+    console.log("📩 Message:", message);
+    console.log("🔑 API KEY:", process.env.GEMINI_API_KEY);
+
+    // ✅ cache check
+    if (cache.has(message)) {
+      console.log("⚡ Cache hit");
+      return cache.get(message);
+    }
 
     const prompt = `
 You are SmartAid AI.
@@ -30,31 +39,76 @@ User: "${message}"
 Reply in 1-2 short helpful sentences.
 `;
 
+    // ✅ CORRECT Gemini API (HEADER AUTH)
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": process.env.GEMINI_API_KEY
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
         })
       }
     );
 
+    // ❗ Handle HTTP errors properly
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ Gemini HTTP Error:", text);
+      return fallbackReply(message);
+    }
+
     const data = await res.json();
 
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No response";
+    console.log("🧠 Gemini FULL response:", JSON.stringify(data, null, 2));
 
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!reply) {
+      console.error("❌ No reply from Gemini");
+      return fallbackReply(message);
+    }
+
+    // ✅ cache result
     cache.set(message, reply);
 
     return reply;
 
   } catch (err) {
-    console.error("AI Chat Error:", err);
-    return "⚠️ AI unavailable";
+    console.error("❌ AI Chat Error:", err);
+    return fallbackReply(message);
   }
+}
+
+// ================= FALLBACK CHAT =================
+function fallbackReply(message) {
+  const msg = message.toLowerCase();
+
+  if (msg.includes("doctor")) {
+    return "You can check the Live Map to find nearby doctors.";
+  }
+
+  if (msg.includes("ngo")) {
+    return "Welcome! How can I support your NGO today?";
+  }
+
+  if (msg.includes("volunteer")) {
+    return "You can view available volunteers in the Volunteers section.";
+  }
+
+  if (msg.includes("help")) {
+    return "I can help you post needs, find volunteers, or assist NGOs.";
+  }
+
+  return "I didn’t understand. Try asking something else.";
 }
 
 // ================= PARSER =================
@@ -62,7 +116,7 @@ export async function parseWithGemini(text) {
   try {
     console.log("INPUT:", text);
 
-    // 🔥 ALWAYS USE FALLBACK (FAST + ACCURATE)
+    // 🔥 Using fallback parser (fast & reliable)
     return fallbackParser(text);
 
   } catch (err) {
@@ -83,10 +137,8 @@ function fallbackParser(text) {
   const sortedSkills = [...ALL_SKILLS].sort((a, b) => b.length - a.length);
 
   for (let skill of sortedSkills) {
-
     const pattern = skill.replace(/\s+/g, "\\s+");
 
-    // 🔥 supports: 2 drivers, driver, web developers
     const regex = new RegExp(`(\\d+)?\\s*${pattern}s?`, "gi");
 
     let match;
@@ -96,12 +148,12 @@ function fallbackParser(text) {
 
       needs.push({
         title: `Need ${qty} ${skill}${qty > 1 ? "s" : ""}`,
-        type: skill,              // ✅ exact role
-        role: skill,              // ✅ critical for matching
+        type: skill,
+        role: skill,
         qty,
         urgency,
         location,
-        requiredVolunteers: qty,  // ✅ direct mapping
+        requiredVolunteers: qty,
         description: text
       });
     }
